@@ -4,6 +4,26 @@
 #include <X11/Xft/Xft.h>
 
 
+void on_event(XEvent* event){
+}
+
+static void (*event_handlers[LASTEvent])(XEvent*) = {
+    [KeyPress] = on_event,
+    [ClientMessage] = on_event,
+    [ConfigureNotify] = on_event,
+    [VisibilityNotify] = on_event,
+    [UnmapNotify] = on_event,
+    [Expose] = on_event,
+    [FocusIn] = on_event,
+    [FocusOut] = on_event,
+    [MotionNotify] = on_event,
+    [ButtonPress] = on_event,
+    [ButtonRelease] = on_event,
+    [SelectionNotify] = on_event,
+    [PropertyNotify] = on_event,
+    [SelectionRequest] = on_event
+};
+
 int setup(){
     // create connection to the x server
     terminal.display = XOpenDisplay(NULL);
@@ -58,7 +78,22 @@ fail:
 }
 
 int run(){
+    XEvent event;
 
+    while (TRUE){
+        while(XPending(terminal.display)){
+            XNextEvent(terminal.display, &event);
+
+            if (event_handlers[event.type]){
+                (event_handlers[event.type])(&event);
+            }
+        }
+    }
+
+    return 0;
+
+// fail:
+    // return -1;
 }
 
 int main(){
@@ -66,7 +101,10 @@ int main(){
 
     LOG("terminal has started.\n");
     ret = setup();
-    ASSERT(ret == 0, "failed to setup terminal\n");
+    ASSERT(ret == 0, "failed to setup terminal.\n");
+
+    ret = run();
+    ASSERT(ret == 0, "failed to run terminal.\n");
 
     LOG("terminal has finished.\n");
     return 0;
