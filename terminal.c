@@ -1,9 +1,5 @@
 #include "terminal.h"
 
-#include <X11/Xlib.h>
-#include <X11/Xft/Xft.h>
-
-
 void on_event(XEvent* event){
 }
 
@@ -40,8 +36,6 @@ int setup(){
 
     Window parent;
     XSetWindowAttributes attrs;
-    // attrs.background_pixel = ;
-    // attrs.border_pixel = ;
     attrs.bit_gravity = NorthWestGravity;
     attrs.event_mask =  FocusChangeMask | 
                         KeyPressMask | 
@@ -68,8 +62,46 @@ int setup(){
                                     terminal.visual,
                                     CWBitGravity | CWEventMask | CWColormap,
                                     &attrs);
+
     XMapWindow(terminal.display, terminal.window);
     XSync(terminal.display, FALSE);
+
+    // terminal.xft_font = XftFontOpenName(terminal.display, 
+                                        // terminal.screen, "Arial-20");                               
+
+    terminal.xft_font = XftFontOpen(terminal.display,
+                                    terminal.screen,
+                                    XFT_FAMILY, XftTypeString, "ubuntu",
+                                    XFT_SIZE, XftTypeDouble, 12.0,
+                                    NULL);
+
+    terminal.xft_draw = XftDrawCreate(  terminal.display,
+                                        terminal.window,
+                                        terminal.visual,
+                                        terminal.colormap);
+
+    XRenderColor xrcolor;
+    XftColor	 xftcolor;
+    xrcolor.red = 65535;
+    xrcolor.green = 65535;
+    xrcolor.blue = 65535;
+    xrcolor.alpha = 65535;
+
+    XftColorAllocValue( terminal.display,
+                        terminal.visual,
+                        terminal.colormap,
+                        &xrcolor,
+                        &xftcolor);
+
+    unsigned char string_to_draw[] = "string to draw";
+    XftDrawString8( terminal.xft_draw,
+                    &xftcolor,
+                    terminal.xft_font,
+                    20, 50,
+                    string_to_draw,
+                    sizeof(string_to_draw) - 1);
+
+    XFlush(terminal.display);
 
     return 0;
 

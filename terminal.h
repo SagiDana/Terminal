@@ -2,6 +2,9 @@
 #define TERMINAL_H
 
 
+#include <X11/Xlib.h>
+#include <X11/Xft/Xft.h>
+
 #include "common.h"
 
 typedef struct{
@@ -10,6 +13,9 @@ typedef struct{
     Visual* visual;
     Colormap colormap;
     Window window;
+
+    XftDraw* xft_draw;
+    XftFont* xft_font;
 
     int x;
     int y;
