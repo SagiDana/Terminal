@@ -1,8 +1,18 @@
 #include "t.h"
-#include "terminal.h"
 
+#include <signal.h>
+#include <unistd.h>
+#include <pty.h>
+
+
+// ------------------------------------------------------------------------
+// signal handlers
+// ------------------------------------------------------------------------
+void sigchld_handler(int arg){
+}
 
 void on_event(XEvent* event){
+    
 }
 
 static void (*event_handlers[LASTEvent])(XEvent*) = {
@@ -53,7 +63,102 @@ int end(){
     return 0;
 }
 
+int draw_example(){
+    xterminal.xft_font = XftFontOpen(   xterminal.display,
+                                        xterminal.screen,
+                                        XFT_FAMILY, XftTypeString, "ubuntu",
+                                        XFT_SIZE, XftTypeDouble, 12.0,
+                                        NULL);
+
+    xterminal.xft_draw = XftDrawCreate( xterminal.display,
+                                        xterminal.window,
+                                        xterminal.visual,
+                                        xterminal.colormap);
+
+    XRenderColor xrcolor;
+    XftColor	 xftcolor;
+    xrcolor.red = 65535;
+    xrcolor.green = 65535;
+    xrcolor.blue = 65535;
+    xrcolor.alpha = 65535;
+
+    XftColorAllocValue( xterminal.display,
+                        xterminal.visual,
+                        xterminal.colormap,
+                        &xrcolor,
+                        &xftcolor);
+
+    unsigned char string_to_draw[] = "string to draw";
+    XftDrawString8( xterminal.xft_draw,
+                    &xftcolor,
+                    xterminal.xft_font,
+                    20, 50,
+                    string_to_draw,
+                    sizeof(string_to_draw) - 1);
+
+    XFlush(xterminal.display);
+
+    return 0;
+}
+
+int create_tty(){
+    int ret;
+    int master, slave;
+
+	ret = openpty(&master, &slave, NULL, NULL, NULL);
+    ASSERT(ret == 0, "failed to open pty.\n");
+
+    ret = fork();
+    ASSERT((ret != -1), "failed to fork().\n");
+
+    // child
+    if (ret == 0){
+        // create a new process group
+		setsid(); 
+
+		dup2(slave, 0);
+		dup2(slave, 1);
+		dup2(slave, 2);
+
+		close(slave);
+		close(master);
+
+        char* args[] = {    shell, 
+                            NULL 
+                       };
+
+        // TODO: setting environment vairables.
+
+        // setting signal handlers to defaults.
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGHUP, SIG_DFL);
+        signal(SIGINT, SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGALRM, SIG_DFL);
+
+        execvp(shell, args);
+        exit(1);
+    }
+
+    // parent
+    if (ret != 0){
+        close(slave);
+
+		signal(SIGCHLD, sigchld_handler);
+
+        xterminal.pty_master = master;
+    }
+
+    return 0;
+
+fail:
+    return -1;
+}
+
 int start(){
+    int ret;
+
     // create connection to the x server
     xterminal.display = XOpenDisplay(NULL);
     ASSERT(xterminal.display, "failed to open dispaly.\n");
@@ -66,8 +171,11 @@ int start(){
 
     xterminal.x = 0;
     xterminal.y = 0;
-    xterminal.width = 100;
-    xterminal.height = 40;
+    xterminal.width = cols;
+    xterminal.height = rows;
+
+    xterminal.terminal = terminal_create(xterminal.width, xterminal.height);
+    ASSERT(xterminal.terminal, "failed to create terminal.\n");
 
     Window parent;
     XSetWindowAttributes attrs;
@@ -103,39 +211,8 @@ int start(){
     XMapWindow(xterminal.display, xterminal.window);
     XSync(xterminal.display, FALSE);
 
-    xterminal.xft_font = XftFontOpen(xterminal.display,
-                                    xterminal.screen,
-                                    XFT_FAMILY, XftTypeString, "ubuntu",
-                                    XFT_SIZE, XftTypeDouble, 12.0,
-                                    NULL);
-
-    xterminal.xft_draw = XftDrawCreate(  xterminal.display,
-                                        xterminal.window,
-                                        xterminal.visual,
-                                        xterminal.colormap);
-
-    XRenderColor xrcolor;
-    XftColor	 xftcolor;
-    xrcolor.red = 65535;
-    xrcolor.green = 65535;
-    xrcolor.blue = 65535;
-    xrcolor.alpha = 65535;
-
-    XftColorAllocValue( xterminal.display,
-                        xterminal.visual,
-                        xterminal.colormap,
-                        &xrcolor,
-                        &xftcolor);
-
-    unsigned char string_to_draw[] = "string to draw";
-    XftDrawString8( xterminal.xft_draw,
-                    &xftcolor,
-                    xterminal.xft_font,
-                    20, 50,
-                    string_to_draw,
-                    sizeof(string_to_draw) - 1);
-
-    XFlush(xterminal.display);
+    ret = create_tty();
+    ASSERT(ret == 0, "failed creating tty.\n");
 
     return 0;
 

@@ -6,6 +6,7 @@
 #include <X11/Xft/Xft.h>
 
 #include "common.h"
+#include "terminal.h"
 
 
 typedef struct{
@@ -20,6 +21,10 @@ typedef struct{
     XftDraw* xft_draw;
     XftFont* xft_font;
 
+    Terminal* terminal;
+
+    int pty_master;
+
     int x;
     int y;
     unsigned int width;
@@ -31,6 +36,12 @@ static XTerminal xterminal;
 
 int main();
 
+// -----------------------------------------------------------------------
+// configuration
+// -----------------------------------------------------------------------
+char shell[] = "/bin/sh";
+unsigned int cols = 80;
+unsigned int rows = 24;
 
 // -----------------------------------------------------------------------
 // colors

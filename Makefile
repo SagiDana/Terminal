@@ -1,7 +1,7 @@
 X11INC = /usr/X11R6/include
 X11LIB = /usr/X11R6/lib
 
-LIBS = -L${X11LIB} -lX11 -lXft \
+LIBS = -L${X11LIB} -lX11 -lXft -lutil \
 	   `pkg-config --libs freetype2`
 
 INCS = -I${X11INC} \
