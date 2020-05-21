@@ -12,11 +12,11 @@ CC = cc
 LDFLAGS = ${LIBS}
 CFLAGS = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS}
 
-SRC = terminal.c common.c list.c
+SRC = t.c terminal.c common.c list.c
 
 OBJ = ${SRC:.c=.o}
 
-all: terminal options
+all: t options
 
 options:
 	@echo wm build options:
@@ -27,8 +27,8 @@ options:
 .c.o:
 	${CC} -c ${CFLAGS} $<
 
-terminal: ${OBJ}
+t: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
 clean: 
-	rm terminal *.o
+	rm t *.o
