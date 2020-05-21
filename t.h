@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "terminal.h"
+#include "pty.h"
 
 
 typedef struct{
@@ -23,7 +24,7 @@ typedef struct{
 
     Terminal* terminal;
 
-    int pty_master;
+    Pty* pty;
 
     int x;
     int y;

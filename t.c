@@ -1,15 +1,5 @@
 #include "t.h"
 
-#include <signal.h>
-#include <unistd.h>
-#include <pty.h>
-
-
-// ------------------------------------------------------------------------
-// signal handlers
-// ------------------------------------------------------------------------
-void sigchld_handler(int arg){
-}
 
 void on_event(XEvent* event){
     
@@ -101,64 +91,7 @@ int draw_example(){
     return 0;
 }
 
-int create_tty(){
-    int ret;
-    int master, slave;
-
-	ret = openpty(&master, &slave, NULL, NULL, NULL);
-    ASSERT(ret == 0, "failed to open pty.\n");
-
-    ret = fork();
-    ASSERT((ret != -1), "failed to fork().\n");
-
-    // child
-    if (ret == 0){
-        // create a new process group
-		setsid(); 
-
-		dup2(slave, 0);
-		dup2(slave, 1);
-		dup2(slave, 2);
-
-		close(slave);
-		close(master);
-
-        char* args[] = {    shell, 
-                            NULL 
-                       };
-
-        // TODO: setting environment vairables.
-
-        // setting signal handlers to defaults.
-        signal(SIGCHLD, SIG_DFL);
-        signal(SIGHUP, SIG_DFL);
-        signal(SIGINT, SIG_DFL);
-        signal(SIGQUIT, SIG_DFL);
-        signal(SIGTERM, SIG_DFL);
-        signal(SIGALRM, SIG_DFL);
-
-        execvp(shell, args);
-        exit(1);
-    }
-
-    // parent
-    if (ret != 0){
-        close(slave);
-
-		signal(SIGCHLD, sigchld_handler);
-
-        xterminal.pty_master = master;
-    }
-
-    return 0;
-
-fail:
-    return -1;
-}
-
 int start(){
-    int ret;
-
     // create connection to the x server
     xterminal.display = XOpenDisplay(NULL);
     ASSERT(xterminal.display, "failed to open dispaly.\n");
@@ -211,8 +144,9 @@ int start(){
     XMapWindow(xterminal.display, xterminal.window);
     XSync(xterminal.display, FALSE);
 
-    ret = create_tty();
-    ASSERT(ret == 0, "failed creating tty.\n");
+    char* args[] = { shell, NULL };
+    xterminal.pty = pty_create(args);
+    ASSERT(xterminal.pty, "failed creating pty.\n");
 
     return 0;
 

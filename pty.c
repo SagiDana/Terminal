@@ -1,0 +1,86 @@
+#include "pty.h"
+#include "common.h"
+
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
+#include <pty.h>
+
+
+// ------------------------------------------------------------------------
+// signal handlers
+// ------------------------------------------------------------------------
+
+void sigchld_handler(int arg){
+	exit(0);
+}
+
+// ------------------------------------------------------------------------
+
+Pty* pty_create(char** args){
+    Pty* pty = NULL;
+
+    pty = (Pty*) malloc(sizeof(Pty));
+    ASSERT(pty, "failed to malloc() pty.\n");
+
+    int master, slave;
+    int ret;
+
+	ret = openpty(&master, &slave, NULL, NULL, NULL);
+    if (ret != 0){
+        LOG("failed to open pty.\n");
+        free(pty);
+        pty = NULL;
+        goto fail;
+    }
+
+    ret = fork();
+    if (ret == -1){
+        LOG("failed to fork().\n");
+        free(pty);
+        pty = NULL;
+        goto fail;
+    }
+
+    // child
+    if (ret == 0){
+        // create a new process group
+		setsid(); 
+
+		dup2(slave, 0);
+		dup2(slave, 1);
+		dup2(slave, 2);
+
+		close(slave);
+		close(master);
+
+        // TODO: setting environment vairables.
+
+        // setting signal handlers to defaults.
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGHUP, SIG_DFL);
+        signal(SIGINT, SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGALRM, SIG_DFL);
+
+        execvp(args[0], args);
+        exit(1);
+    }
+
+    // parent
+    if (ret != 0){
+        close(slave);
+
+		signal(SIGCHLD, sigchld_handler);
+
+        pty->pty_master = master;
+    }
+
+fail:
+    return pty;
+}
+
+void pty_destroy(Pty* pty){
+    free(pty);
+}
