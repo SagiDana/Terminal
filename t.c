@@ -48,6 +48,7 @@ int destroy_colors(){
 }
 
 int end(){
+    pty_destroy(xterminal.pty);
     destroy_colors();
 
     return 0;

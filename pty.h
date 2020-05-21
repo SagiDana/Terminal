@@ -3,11 +3,18 @@
 
 
 typedef struct{
-    int pty_master;
+    int master;
 }Pty;
 
 
 Pty* pty_create(char** args);
 void pty_destroy(Pty* pty);
+
+int pty_read(   Pty* pty, 
+                char* buf,
+                unsigned int len);
+int pty_write(  Pty* pty,
+                char* buf,
+                unsigned int len);
 
 #endif

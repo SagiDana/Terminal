@@ -1,6 +1,7 @@
 #include "pty.h"
 #include "common.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
@@ -74,7 +75,7 @@ Pty* pty_create(char** args){
 
 		signal(SIGCHLD, sigchld_handler);
 
-        pty->pty_master = master;
+        pty->master = master;
     }
 
 fail:
@@ -83,4 +84,33 @@ fail:
 
 void pty_destroy(Pty* pty){
     free(pty);
+}
+
+
+int pty_read(   Pty* pty, 
+                char* buf,
+                unsigned int len){
+    int ret;
+
+    ret = read(pty->master, buf, len);
+    ASSERT((ret >= 0), "failed to read from pty.\n");
+
+    return ret;
+
+fail:
+    return -1;
+}
+
+int pty_write(  Pty* pty,
+                char* buf,
+                unsigned int len){
+    int ret;
+
+    ret = write(pty->master, buf, len);
+    ASSERT((ret >= 0), "failed to read from pty.\n");
+
+    return ret;
+
+fail:
+    return -1;
 }
