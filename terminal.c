@@ -27,6 +27,7 @@ Terminal* terminal_create(int cols_number, int rows_number){
 
     terminal->screen = (Element*) malloc(sizeof(Element) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
+    memset(terminal->screen, 0, sizeof(Element) * cols_number * rows_number);
 
     return terminal;
 
@@ -45,6 +46,33 @@ void terminal_destroy(Terminal* terminal){
 
 fail:
     return;
+}
+
+/*
+ * current implementation is reseting 
+ * the terminal completely for now.. 
+ * TODO:
+ */
+int terminal_resize(Terminal* terminal, 
+                    int cols_number, 
+                    int rows_number){
+
+    free(terminal->screen);
+
+    terminal->cols_number = cols_number;
+    terminal->rows_number = rows_number;
+    terminal->cursor.x = 0;
+    terminal->cursor.y = 0;
+    terminal->start_line_index = 0;
+
+    terminal->screen = (Element*) malloc(sizeof(Element) * cols_number * rows_number);
+    ASSERT(terminal->screen, "failed to malloc screen.\n");
+    memset(terminal->screen, 0, sizeof(Element) * cols_number * rows_number);
+
+    return 0;
+
+fail:
+    return -1;
 }
 
 int terminal_rotate_lines(Terminal* terminal){
@@ -92,4 +120,10 @@ int terminal_push(Terminal* terminal, char* buf, int len){
 
 fail:
     return -1;
+}
+
+Element* terminal_element(Terminal* terminal, int x, int y){
+    Element* element = NULL;
+    element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
+    return element;
 }

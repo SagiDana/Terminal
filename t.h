@@ -8,7 +8,9 @@
 
 #include "common.h"
 #include "terminal.h"
+#include "element.h"
 #include "pty.h"
+#include "font.h"
 
 
 typedef struct{
@@ -19,13 +21,14 @@ typedef struct{
     Window window;
 
     XColor background_color;
+    XColor foreground_color;
 
     XftDraw* xft_draw;
-    XftFont* xft_font;
+    TFont* font;
 
     Terminal* terminal;
 
-    Pty* pty;
+    TPty* pty;
 
     int x;
     int y;
@@ -42,6 +45,10 @@ int main();
 // configuration
 // -----------------------------------------------------------------------
 char shell[] = "/bin/sh";
+
+char font_name[] = "ubuntu";
+double font_size = 12.0;
+
 unsigned int cols = 80;
 unsigned int rows = 24;
 
@@ -49,6 +56,7 @@ unsigned int rows = 24;
 // colors
 // -----------------------------------------------------------------------
 char background_color[] = "#000000";
+char foreground_color[] = "#FFFFFF";
 
 // -----------------------------------------------------------------------
 // keys

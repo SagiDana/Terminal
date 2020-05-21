@@ -55,6 +55,25 @@ fail:
 void on_event(XEvent* event){
 }
 
+void on_configure_notify(XEvent* event){
+    int ret;
+    XConfigureEvent* configure_event = &event->xconfigure;
+
+    LOG("x: %d, y: %d, width: %d, height: %d\n", configure_event->x,
+                                                 configure_event->y,
+                                                 configure_event->width,
+                                                 configure_event->height);
+
+    int cols_number = configure_event->width / xterminal.font->width;
+    int rows_number = configure_event->height / xterminal.font->height;
+
+    ret = terminal_resize(xterminal.terminal, cols_number, rows_number);
+    ASSERT(ret == 0, "failed to resize terminal.\n");
+
+fail:
+    return;
+}
+
 void on_key_press(XEvent* event){
     int len;
     char buf[64];
@@ -88,7 +107,7 @@ fail:
 static void (*event_handlers[LASTEvent])(XEvent*) = {
     [KeyPress] = on_key_press,
     [ClientMessage] = on_event,
-    [ConfigureNotify] = on_event,
+    [ConfigureNotify] = on_configure_notify,
     [VisibilityNotify] = on_event,
     [UnmapNotify] = on_event,
     [Expose] = on_event,
@@ -107,10 +126,27 @@ int setup_colors(){
 
     ret = XParseColor(xterminal.display, xterminal.colormap, background_color, &xterminal.background_color);
     ASSERT(ret, "failed to parse color.\n");
+    ret = XParseColor(xterminal.display, xterminal.colormap, foreground_color, &xterminal.foreground_color);
+    ASSERT(ret, "failed to parse color.\n");
 
     ret = XAllocColor(xterminal.display, xterminal.colormap, &xterminal.background_color);
     ASSERT(ret, "failed to alloc color.\n");
 
+    ret = XAllocColor(xterminal.display, xterminal.colormap, &xterminal.foreground_color);
+    ASSERT(ret, "failed to alloc color.\n");
+
+    return 0;
+
+fail:
+    return -1;
+}
+
+int setup_fonts(){
+    xterminal.font = font_create(   xterminal.display,
+                                    xterminal.screen,
+                                    font_name,
+                                    font_size);
+    ASSERT(xterminal.font, "failed to create font\n");
     return 0;
 
 fail:
@@ -123,34 +159,29 @@ int destroy_colors(){
                 &xterminal.background_color.pixel,
                 1,
                 0);
+    XFreeColors(xterminal.display, 
+                xterminal.colormap,
+                &xterminal.foreground_color.pixel,
+                1,
+                0);
 
+    return 0;
+}
+
+int destroy_fonts(){
+    font_destroy(xterminal.font);
     return 0;
 }
 
 int end(){
     pty_destroy(xterminal.pty);
     destroy_colors();
+    destroy_fonts();
 
     return 0;
 }
 
-int draw(){
-
-    return 0;
-}
-
-int draw_example(){
-    xterminal.xft_font = XftFontOpen(   xterminal.display,
-                                        xterminal.screen,
-                                        XFT_FAMILY, XftTypeString, "ubuntu",
-                                        XFT_SIZE, XftTypeDouble, 12.0,
-                                        NULL);
-
-    xterminal.xft_draw = XftDrawCreate( xterminal.display,
-                                        xterminal.window,
-                                        xterminal.visual,
-                                        xterminal.colormap);
-
+int draw_element(Element* element, int x, int y){
     XRenderColor xrcolor;
     XftColor	 xftcolor;
     xrcolor.red = 65535;
@@ -164,17 +195,39 @@ int draw_example(){
                         &xrcolor,
                         &xftcolor);
 
-    unsigned char string_to_draw[] = "string to draw";
+    unsigned char element_as_string = (unsigned char) element->character_code;
+
+    // do not draw empty elements.
+    if (element_as_string == 0){
+        return 0;
+    }
+
     XftDrawString8( xterminal.xft_draw,
                     &xftcolor,
-                    xterminal.xft_font,
-                    20, 50,
-                    string_to_draw,
-                    sizeof(string_to_draw) - 1);
+                    xterminal.font->xft_font,
+                    (x * xterminal.font->width),
+                    (y * xterminal.font->height),
+                    &element_as_string,
+                    1);
 
+    return 0;
+}
+
+int draw(){
+    int ret;
+    int x,y;
+    for (x = 0; x < xterminal.terminal->cols_number; x++){
+        for (y = 0; y < xterminal.terminal->rows_number; y++){
+            Element* element = terminal_element(xterminal.terminal, x, y);
+            ret = draw_element(element, x, y);
+            ASSERT(ret == 0, "failed to draw element.\n");
+        }
+    }
     XFlush(xterminal.display);
 
     return 0;
+fail:
+    return -1;
 }
 
 int start(){
@@ -187,6 +240,7 @@ int start(){
     xterminal.colormap = XDefaultColormap(xterminal.display, xterminal.screen);
 
     setup_colors();
+    setup_fonts();
 
     xterminal.x = 0;
     xterminal.y = 0;
@@ -227,6 +281,11 @@ int start(){
                                     CWBitGravity | CWEventMask | CWColormap | CWBackPixel | CWBorderPixel,
                                     &attrs);
 
+    xterminal.xft_draw = XftDrawCreate( xterminal.display,
+                                        xterminal.window,
+                                        xterminal.visual,
+                                        xterminal.colormap);
+
     XMapWindow(xterminal.display, xterminal.window);
     XSync(xterminal.display, FALSE);
 
@@ -247,6 +306,8 @@ int run(){
 
     while (TRUE){
         if (pty_pending(xterminal.pty)){
+            LOG("pty pending!\n");
+
             ret = read_from_pty();
             ASSERT(ret == 0, "failed to read from pty.\n");
             to_draw = TRUE;
@@ -258,6 +319,7 @@ int run(){
             if (event_handlers[event.type]){
                 (event_handlers[event.type])(&event);
             }
+            XSync(xterminal.display, FALSE);
         }
 
         if (to_draw){

@@ -20,10 +20,10 @@ void sigchld_handler(int arg){
 
 // ------------------------------------------------------------------------
 
-Pty* pty_create(char** args){
-    Pty* pty = NULL;
+TPty* pty_create(char** args){
+    TPty* pty = NULL;
 
-    pty = (Pty*) malloc(sizeof(Pty));
+    pty = (TPty*) malloc(sizeof(TPty));
     ASSERT(pty, "failed to malloc() pty.\n");
 
     int master, slave;
@@ -84,12 +84,12 @@ fail:
     return pty;
 }
 
-void pty_destroy(Pty* pty){
+void pty_destroy(TPty* pty){
     free(pty);
 }
 
 
-int pty_read(   Pty* pty, 
+int pty_read(   TPty* pty, 
                 char* buf,
                 unsigned int len){
     int ret;
@@ -103,7 +103,7 @@ fail:
     return -1;
 }
 
-int pty_write(  Pty* pty,
+int pty_write(  TPty* pty,
                 char* buf,
                 unsigned int len){
     int ret;
@@ -118,7 +118,7 @@ fail:
 }
 
 
-int pty_pending(Pty* pty){
+int pty_pending(TPty* pty){
     int ret;
 
     fd_set read_fds;
