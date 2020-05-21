@@ -20,6 +20,21 @@ static void (*event_handlers[LASTEvent])(XEvent*) = {
     [SelectionRequest] = on_event
 };
 
+int setup_colors(){
+    int ret;
+
+    ret = XParseColor(terminal.display, terminal.colormap, background_color, &terminal.background_color);
+    ASSERT(ret, "failed to parse color.\n");
+
+    ret = XAllocColor(terminal.display, terminal.colormap, &terminal.background_color);
+    ASSERT(ret, "failed to alloc color.\n");
+
+    return 0;
+
+fail:
+    return -1;
+}
+
 int setup(){
     // create connection to the x server
     terminal.display = XOpenDisplay(NULL);
@@ -29,6 +44,8 @@ int setup(){
     terminal.visual = XDefaultVisual(terminal.display, terminal.screen);
     terminal.colormap = XDefaultColormap(terminal.display, terminal.screen);
 
+    setup_colors();
+
     terminal.x = 0;
     terminal.y = 0;
     terminal.width = 100;
@@ -36,6 +53,8 @@ int setup(){
 
     Window parent;
     XSetWindowAttributes attrs;
+    attrs.background_pixel = terminal.background_color.pixel;
+    attrs.border_pixel = terminal.background_color.pixel;
     attrs.bit_gravity = NorthWestGravity;
     attrs.event_mask =  FocusChangeMask | 
                         KeyPressMask | 
@@ -60,14 +79,11 @@ int setup(){
                                     XDefaultDepth(terminal.display, terminal.screen), 
                                     InputOutput,
                                     terminal.visual,
-                                    CWBitGravity | CWEventMask | CWColormap,
+                                    CWBitGravity | CWEventMask | CWColormap | CWBackPixel | CWBorderPixel,
                                     &attrs);
 
     XMapWindow(terminal.display, terminal.window);
     XSync(terminal.display, FALSE);
-
-    // terminal.xft_font = XftFontOpenName(terminal.display, 
-                                        // terminal.screen, "Arial-20");                               
 
     terminal.xft_font = XftFontOpen(terminal.display,
                                     terminal.screen,
@@ -123,9 +139,6 @@ int run(){
     }
 
     return 0;
-
-// fail:
-    // return -1;
 }
 
 int main(){
