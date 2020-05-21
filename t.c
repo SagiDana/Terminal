@@ -1,12 +1,73 @@
 #include "t.h"
 
 
-void on_event(XEvent* event){
-    
+// ------------------------------------------------------------------------------------
+// helper functions
+// ------------------------------------------------------------------------------------
+
+Key* get_key_by_event(Display* display, XKeyEvent* event){
+#define ONLY_MODIFIERS(x) (x & (ShiftMask   | \
+                                ControlMask | \
+                                Mod1Mask    | \
+                                Mod2Mask    | \
+                                Mod3Mask    | \
+                                Mod4Mask    | \
+                                Mod5Mask))
+    int i;
+    for (i = 0; i < LENGTH(terminal_keys); i++){
+        if (event->keycode != XKeysymToKeycode(display, terminal_keys[i].keysym)){
+            continue;
+        }
+        if (ONLY_MODIFIERS(event->state) != ONLY_MODIFIERS(terminal_keys[i].mod)){
+            continue;
+        }
+
+        return &terminal_keys[i];
+    }
+    return NULL;
 }
 
+// ------------------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------------------
+// on event handlers
+// ------------------------------------------------------------------------------------
+
+void on_event(XEvent* event){
+}
+
+void on_key_press(XEvent* event){
+    int len;
+    char buf[64];
+    char* string = NULL;
+	KeySym keysym;
+	XKeyEvent *key_event = &event->xkey;
+
+    Key* special_key = get_key_by_event(xterminal.display, key_event);
+    if (special_key){
+        string = special_key->string;
+        len = strlen(string);
+
+    }else{
+        // getting string representation of the key that just pressed.
+        len = XLookupString(key_event, buf, sizeof(buf), &keysym, NULL);
+        ASSERT((len > 0), "XLookupString could not find string to key press.\n");
+        string = buf;
+    }
+
+    LOG("key pressed: %s\n", string);
+
+    // write key pressed to pty.
+    pty_write(xterminal.pty, string, len);
+
+fail:
+    return;
+}
+
+// ------------------------------------------------------------------------------------
+
 static void (*event_handlers[LASTEvent])(XEvent*) = {
-    [KeyPress] = on_event,
+    [KeyPress] = on_key_press,
     [ClientMessage] = on_event,
     [ConfigureNotify] = on_event,
     [VisibilityNotify] = on_event,

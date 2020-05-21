@@ -4,6 +4,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
+#include <limits.h>
 
 #include "common.h"
 #include "terminal.h"
@@ -48,5 +49,20 @@ unsigned int rows = 24;
 // colors
 // -----------------------------------------------------------------------
 char background_color[] = "#000000";
+
+// -----------------------------------------------------------------------
+// keys
+// -----------------------------------------------------------------------
+typedef struct{
+    KeySym keysym;
+    unsigned int mod;
+    char* string;
+} Key;
+
+#define XK_ANY_MOD (UINT_MAX)
+
+static Key terminal_keys[] = {
+	{ XK_KP_Enter,      XK_ANY_MOD,     "\r" }
+};
 
 #endif
