@@ -35,7 +35,23 @@ fail:
     return -1;
 }
 
-int setup(){
+int destroy_colors(){
+    XFreeColors(terminal.display, 
+                terminal.colormap,
+                &terminal.background_color.pixel,
+                1,
+                0);
+
+    return 0;
+}
+
+int end(){
+    destroy_colors();
+
+    return 0;
+}
+
+int start(){
     // create connection to the x server
     terminal.display = XOpenDisplay(NULL);
     ASSERT(terminal.display, "failed to open dispaly.\n");
@@ -145,12 +161,14 @@ int main(){
     int ret;
 
     LOG("terminal has started.\n");
-    ret = setup();
-    ASSERT(ret == 0, "failed to setup terminal.\n");
+    ret = start();
+    ASSERT(ret == 0, "failed to start terminal.\n");
 
     ret = run();
     ASSERT(ret == 0, "failed to run terminal.\n");
 
+    ret = end();
+    ASSERT(ret == 0, "failed to end terminal properly.\n");
     LOG("terminal has finished.\n");
     return 0;
 
