@@ -14,12 +14,13 @@
 void terminal_log(char* msg);
 
 #define LOG(...) do{                \
-    char buff[256];                 \
+    char buff[8128];                 \
     sprintf(buff, __VA_ARGS__);     \
     terminal_log(buff);                   \
 }while(0)
 
 #define ASSERT(expr, ...) if(!expr) {LOG(__VA_ARGS__); goto fail;}
+#define ASSERT_TO(label, expr, ...) if(!expr) {LOG(__VA_ARGS__); goto label;}
 
 #define LENGTH(x) (sizeof(x) / sizeof(x[0]))
 

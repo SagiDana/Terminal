@@ -12,7 +12,7 @@ CC = cc
 LDFLAGS = ${LIBS}
 CFLAGS = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS}
 
-SRC = t.c terminal.c pty.c common.c list.c
+SRC = t.c terminal.c pty.c common.c list.c element.c
 
 OBJ = ${SRC:.c=.o}
 

@@ -27,6 +27,25 @@ Key* get_key_by_event(Display* display, XKeyEvent* event){
     return NULL;
 }
 
+int read_from_pty(){
+    int ret;
+    char buf[4096];
+    int bytes_read = 1;
+
+    memset(buf, 0, sizeof(buf));
+
+    bytes_read = pty_read(xterminal.pty, buf, sizeof(buf));
+    ASSERT((bytes_read >= 0), "failed to read from pty.\n");
+
+    ret = terminal_push(xterminal.terminal, buf, bytes_read);
+    ASSERT((ret == 0), "failed to push to terminal.\n");
+
+    return 0;
+
+fail:
+    return -1;
+}
+
 // ------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------
@@ -111,6 +130,11 @@ int destroy_colors(){
 int end(){
     pty_destroy(xterminal.pty);
     destroy_colors();
+
+    return 0;
+}
+
+int draw(){
 
     return 0;
 }
@@ -217,9 +241,17 @@ fail:
 }
 
 int run(){
+    int ret;
+    int to_draw = FALSE;
     XEvent event;
 
     while (TRUE){
+        if (pty_pending(xterminal.pty)){
+            ret = read_from_pty();
+            ASSERT(ret == 0, "failed to read from pty.\n");
+            to_draw = TRUE;
+        }
+
         while(XPending(xterminal.display)){
             XNextEvent(xterminal.display, &event);
 
@@ -227,9 +259,17 @@ int run(){
                 (event_handlers[event.type])(&event);
             }
         }
-    }
 
+        if (to_draw){
+            ret = draw();
+            ASSERT(ret == 0, "failed to draw.\n");
+            to_draw = FALSE;
+        }
+    }
     return 0;
+
+fail:
+    return -1;
 }
 
 int main(){

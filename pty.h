@@ -17,4 +17,6 @@ int pty_write(  Pty* pty,
                 char* buf,
                 unsigned int len);
 
+int pty_pending(Pty* pty);
+
 #endif

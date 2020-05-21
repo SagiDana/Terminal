@@ -6,6 +6,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pty.h>
+#include <sys/select.h>
+#include <errno.h>
 
 
 // ------------------------------------------------------------------------
@@ -113,4 +115,29 @@ int pty_write(  Pty* pty,
 
 fail:
     return -1;
+}
+
+
+int pty_pending(Pty* pty){
+    int ret;
+
+    fd_set read_fds;
+
+    struct timeval timeout = {
+        .tv_sec = 0,
+        .tv_usec = 0
+    };
+
+    FD_ZERO(&read_fds);
+    FD_SET(pty->master, &read_fds);
+
+    ret = select(   pty->master + 1,
+                    &read_fds,
+                    NULL,
+                    NULL,
+                    &timeout);
+    if (ret == 0){
+        return FALSE;
+    }
+    return TRUE;
 }
