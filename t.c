@@ -59,13 +59,16 @@ void on_configure_notify(XEvent* event){
     int ret;
     XConfigureEvent* configure_event = &event->xconfigure;
 
-    LOG("x: %d, y: %d, width: %d, height: %d\n", configure_event->x,
-                                                 configure_event->y,
-                                                 configure_event->width,
-                                                 configure_event->height);
-
     int cols_number = configure_event->width / xterminal.font->width;
     int rows_number = configure_event->height / xterminal.font->height;
+
+    // no need to resize!
+    if (cols_number == xterminal.terminal->cols_number &&
+        rows_number == xterminal.terminal->rows_number){
+        return;
+    }
+
+    LOG("resize just happened.\n");
 
     ret = terminal_resize(xterminal.terminal, cols_number, rows_number);
     ASSERT(ret == 0, "failed to resize terminal.\n");
@@ -76,6 +79,7 @@ fail:
 
 void on_key_press(XEvent* event){
     int len;
+    int ret;
     char buf[64];
     char* string = NULL;
 	KeySym keysym;
@@ -93,10 +97,9 @@ void on_key_press(XEvent* event){
         string = buf;
     }
 
-    LOG("key pressed: %s\n", string);
-
     // write key pressed to pty.
-    pty_write(xterminal.pty, string, len);
+    ret = pty_write(xterminal.pty, string, len);
+    ASSERT((ret >= 0), "failed to pty write on key press!\n");
 
 fail:
     return;
@@ -306,10 +309,9 @@ int run(){
 
     while (TRUE){
         if (pty_pending(xterminal.pty)){
-            LOG("pty pending!\n");
-
             ret = read_from_pty();
             ASSERT(ret == 0, "failed to read from pty.\n");
+            LOG("reading from pty.\n");
             to_draw = TRUE;
         }
 
@@ -321,10 +323,15 @@ int run(){
             }
             XSync(xterminal.display, FALSE);
         }
+        // LOG("finished X even loop.\n");
 
         if (to_draw){
             ret = draw();
             ASSERT(ret == 0, "failed to draw.\n");
+
+            XSync(xterminal.display, FALSE);
+            LOG("finished to draw.\n");
+
             to_draw = FALSE;
         }
     }
