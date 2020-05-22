@@ -77,29 +77,42 @@ fail:
 
 int terminal_rotate_lines(Terminal* terminal){
     terminal->start_line_index = (terminal->start_line_index + 1) % terminal->rows_number;
+
     return 0;
 }
 
 int terminal_forward_cursor(Terminal* terminal){
-    int ret;
-
     if (terminal->cursor.x < terminal->cols_number){
         terminal->cursor.x++;
         return 0;
     }
 
-    // need to move to new line
-    if (terminal->cursor.y < terminal->rows_number){
+    return terminal_new_line(terminal);
+}
+
+int terminal_empty_line(Terminal* terminal, int y){
+    int real_y = ((terminal->start_line_index + y) % terminal->rows_number);
+    memset( &terminal->screen[real_y * terminal->cols_number],
+            0,
+            sizeof(Element) * terminal->cols_number);
+
+    return 0;
+}
+
+int terminal_new_line(Terminal* terminal){
+    int ret;
+
+    if (terminal->cursor.y + 1 < terminal->rows_number){
         terminal->cursor.y++;
-        terminal->cursor.x = 0;
-        return 0;
+    }else{
+        ret = terminal_rotate_lines(terminal);
+        ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
     }
 
-    // reached end of screen. need to cyclic
-    ret = terminal_rotate_lines(terminal);
     terminal->cursor.x = 0;
 
-    ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
+    ret = terminal_empty_line(terminal, terminal->cursor.y);
+    ASSERT(ret == 0, "failed to empty new line.\n");
 
     return 0;
 
@@ -111,9 +124,20 @@ int terminal_push(Terminal* terminal, char* buf, int len){
     int ret;
     int i;
     for (i = 0; i < len; i++){
-        ELEMENT.character_code = buf[i] & 0xFF;
+        char curr = buf[i] & 0xFF;
+        if (curr == '\r'){
+            char next = buf[i + 1] & 0xFF;
+            if (next == '\n'){
+                ret = terminal_new_line(terminal);
+                ASSERT(ret == 0, "failed to make terminal new line.\n");
 
-        ret = terminal_forward_cursor(terminal);
+                i++;
+            }
+        }else{
+            ELEMENT.character_code = buf[i] & 0xFF;
+            ret = terminal_forward_cursor(terminal);
+        }
+
         ASSERT(ret == 0, "failed to move cursor forward.\n");
     }
     return 0;
@@ -124,6 +148,8 @@ fail:
 
 Element* terminal_element(Terminal* terminal, int x, int y){
     Element* element = NULL;
+
     element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
+
     return element;
 }

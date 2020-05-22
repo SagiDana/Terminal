@@ -228,8 +228,8 @@ int draw(){
 
     clean_screen();
 
-    for (x = 0; x < xterminal.terminal->cols_number; x++){
-        for (y = 0; y < xterminal.terminal->rows_number; y++){
+    for (y = 0; y < xterminal.terminal->rows_number; y++){
+        for (x = 0; x < xterminal.terminal->cols_number; x++){
             Element* element = terminal_element(xterminal.terminal, x, y);
             ret = draw_element(element, x, y);
             ASSERT(ret == 0, "failed to draw element.\n");
