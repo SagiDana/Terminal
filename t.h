@@ -20,8 +20,10 @@ typedef struct{
     Colormap colormap;
     Window window;
 
-    XColor background_color;
-    XColor foreground_color;
+    // XColor background_color;
+    // XColor foreground_color;
+    XftColor background_color;
+    XftColor foreground_color;
 
     XftDraw* xft_draw;
     TFont* font;

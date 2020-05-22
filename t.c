@@ -59,6 +59,9 @@ void on_configure_notify(XEvent* event){
     int ret;
     XConfigureEvent* configure_event = &event->xconfigure;
 
+    xterminal.width = configure_event->width;
+    xterminal.height = configure_event->height;
+
     int cols_number = configure_event->width / xterminal.font->width;
     int rows_number = configure_event->height / xterminal.font->height;
 
@@ -127,16 +130,19 @@ static void (*event_handlers[LASTEvent])(XEvent*) = {
 int setup_colors(){
     int ret;
 
-    ret = XParseColor(xterminal.display, xterminal.colormap, background_color, &xterminal.background_color);
-    ASSERT(ret, "failed to parse color.\n");
-    ret = XParseColor(xterminal.display, xterminal.colormap, foreground_color, &xterminal.foreground_color);
-    ASSERT(ret, "failed to parse color.\n");
+	ret = XftColorAllocName(    xterminal.display,
+                                xterminal.visual,
+                                xterminal.colormap,
+                                background_color,
+                                &xterminal.background_color);
+    ASSERT(ret, "failed setting up colors.\n");
 
-    ret = XAllocColor(xterminal.display, xterminal.colormap, &xterminal.background_color);
-    ASSERT(ret, "failed to alloc color.\n");
-
-    ret = XAllocColor(xterminal.display, xterminal.colormap, &xterminal.foreground_color);
-    ASSERT(ret, "failed to alloc color.\n");
+	ret = XftColorAllocName(    xterminal.display,
+                                xterminal.visual,
+                                xterminal.colormap,
+                                foreground_color,
+                                &xterminal.foreground_color);
+    ASSERT(ret, "failed setting up colors.\n");
 
     return 0;
 
@@ -157,16 +163,15 @@ fail:
 }
 
 int destroy_colors(){
-    XFreeColors(xterminal.display, 
-                xterminal.colormap,
-                &xterminal.background_color.pixel,
-                1,
-                0);
-    XFreeColors(xterminal.display, 
-                xterminal.colormap,
-                &xterminal.foreground_color.pixel,
-                1,
-                0);
+    XftColorFree(   xterminal.display,
+                    xterminal.visual,
+                    xterminal.colormap,
+                    &xterminal.background_color);
+
+    XftColorFree(   xterminal.display,
+                    xterminal.visual,
+                    xterminal.colormap,
+                    &xterminal.foreground_color);
 
     return 0;
 }
@@ -185,19 +190,6 @@ int end(){
 }
 
 int draw_element(Element* element, int x, int y){
-    XRenderColor xrcolor;
-    XftColor	 xftcolor;
-    xrcolor.red = 65535;
-    xrcolor.green = 65535;
-    xrcolor.blue = 65535;
-    xrcolor.alpha = 65535;
-
-    XftColorAllocValue( xterminal.display,
-                        xterminal.visual,
-                        xterminal.colormap,
-                        &xrcolor,
-                        &xftcolor);
-
     unsigned char element_as_string = (unsigned char) element->character_code;
 
     // do not draw empty elements.
@@ -206,12 +198,26 @@ int draw_element(Element* element, int x, int y){
     }
 
     XftDrawString8( xterminal.xft_draw,
-                    &xftcolor,
+                    &xterminal.foreground_color,
                     xterminal.font->xft_font,
                     (x * xterminal.font->width),
-                    (y * xterminal.font->height),
+                    ((y + 1) * xterminal.font->height),
                     &element_as_string,
                     1);
+
+    return 0;
+}
+
+int clean_screen(){
+    XftDrawRect(    xterminal.xft_draw,
+                    &xterminal.background_color,
+                    0,
+                    0,
+                    xterminal.width,
+                    xterminal.height);
+
+
+    XFlush(xterminal.display);
 
     return 0;
 }
@@ -219,6 +225,9 @@ int draw_element(Element* element, int x, int y){
 int draw(){
     int ret;
     int x,y;
+
+    clean_screen();
+
     for (x = 0; x < xterminal.terminal->cols_number; x++){
         for (y = 0; y < xterminal.terminal->rows_number; y++){
             Element* element = terminal_element(xterminal.terminal, x, y);
@@ -247,8 +256,8 @@ int start(){
 
     xterminal.x = 0;
     xterminal.y = 0;
-    xterminal.width = cols;
-    xterminal.height = rows;
+    xterminal.width = xterminal.font->width * cols;
+    xterminal.height = xterminal.font->height * rows;
 
     xterminal.terminal = terminal_create(xterminal.width, xterminal.height);
     ASSERT(xterminal.terminal, "failed to create terminal.\n");
