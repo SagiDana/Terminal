@@ -1,5 +1,6 @@
 #include "terminal.h"
 #include "common.h"
+#include "utf8.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -121,22 +122,43 @@ fail:
 int terminal_push(Terminal* terminal, char* buf, int len){
     int ret;
     int i;
+
+    unsigned int utf8_state = UTF8_ACCEPT;
+    unsigned int utf8_codepoint;
+
     for (i = 0; i < len; i++){
-        char curr = buf[i] & 0xFF;
-        if (curr == '\r'){
-            char next = buf[i + 1] & 0xFF;
-            if (next == '\n'){
-                ret = terminal_new_line(terminal);
-                ASSERT(ret == 0, "failed to make terminal new line.\n");
+        char curr = buf[i];
 
-                i++;
+        // unicode 
+        if (!utf8_decode(&utf8_state, 
+                         &utf8_codepoint, 
+                         (unsigned char) curr)){
+
+            if (curr == '\r'){
+                char next = buf[i + 1];
+                if (next == '\n'){
+                    ret = terminal_new_line(terminal);
+                    ASSERT(ret == 0, "failed to make terminal new line.\n");
+
+                    i++;
+                }
+                continue;
             }
-        }else{
-            ELEMENT.character_code = buf[i] & 0xFF;
-            ret = terminal_forward_cursor(terminal);
-        }
 
-        ASSERT(ret == 0, "failed to move cursor forward.\n");
+            ELEMENT.character_code = utf8_codepoint;
+
+            ret = terminal_forward_cursor(terminal);
+            ASSERT(ret == 0, "failed to move cursor forward.\n");
+
+            utf8_codepoint = 0;
+        }
+        
+        if (utf8_state == UTF8_REJECT){
+            LOG("utf8 code mallformed\n");
+
+            utf8_state = UTF8_ACCEPT;
+            utf8_codepoint = 0;
+        }
     }
     return 0;
 

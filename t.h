@@ -46,6 +46,7 @@ int main();
 // -----------------------------------------------------------------------
 char shell[] = "/bin/sh";
 
+// char font_name[] = "DejaVu Sans";
 char font_name[] = "ubuntu";
 double font_size = 12.0;
 
