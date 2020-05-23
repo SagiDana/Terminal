@@ -362,12 +362,27 @@ void csi_ed_handler(Terminal* terminal){
 }
 
 void csi_el_handler(Terminal* terminal){
+    int ret;
+
     LOG("csi_el_handler()\n");
     // is there parameters?
     if (terminal->csi_parameters_index > 0){
 
+    // default delete from cursor to end of line
     }else{
+        int i;
+        for (i = terminal->cursor.x; 
+             i < terminal->cols_number;
+             i++){
+            ret = terminal_delete_element(  terminal, 
+                                            i,
+                                            terminal->cursor.y);
+            ASSERT(ret == 0, "failed to delete an element.\n");
+        }
     }
+
+fail:
+    return;
 }
 
 void csi_il_handler(Terminal* terminal){
@@ -494,6 +509,9 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
                 memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
                 terminal->csi_parameters_index = 0;
 
+                SET_NO_MODE(CSI_MODE);
+                SET_NO_MODE(ESC_MODE);
+
                 return FALSE;
             }
 
@@ -509,11 +527,17 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
             memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
             terminal->csi_parameters_index = 0;
 
+            SET_NO_MODE(CSI_MODE);
+            SET_NO_MODE(ESC_MODE);
+
             return TRUE;
         }
 
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
+
+        SET_NO_MODE(CSI_MODE);
+        SET_NO_MODE(ESC_MODE);
 
         return FALSE;
     }
@@ -600,5 +624,15 @@ Element* terminal_element(Terminal* terminal, int x, int y){
     element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
 
     return element;
+}
+
+int terminal_delete_element(Terminal* terminal, int x, int y){
+    Element* element = NULL;
+
+    element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
+
+    element->character_code = 0;
+
+    return 0;
 }
 

@@ -42,4 +42,6 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code);
 int terminal_push(Terminal* terminal, char* buf, int len);
 Element* terminal_element(Terminal* terminal, int x, int y);
 
+int terminal_delete_element(Terminal* terminal, int x, int y);
+
 #endif
