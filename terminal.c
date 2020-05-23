@@ -1,6 +1,7 @@
 #include "terminal.h"
 #include "common.h"
 #include "utf8.h"
+#include "color.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,7 +20,11 @@
 #define SET_MODE(x)      (terminal->mode |= x)
 #define SET_NO_MODE(x)   (terminal->mode &= (~x))
 
-Terminal* terminal_create(int cols_number, int rows_number){
+Terminal* terminal_create(  int cols_number, 
+                            int rows_number, 
+                            char* background_color,
+                            char* foreground_color){
+    int ret;
     Terminal* terminal = NULL;
 
     terminal = (Terminal*) malloc(sizeof(Terminal));
@@ -35,7 +40,16 @@ Terminal* terminal_create(int cols_number, int rows_number){
     terminal->cursor.x = 0;
     terminal->cursor.y = 0;
 
+    ret = color_from_string(background_color, &terminal->default_background_color);
+    ASSERT_TO(fail_on_screen, (ret == 0), "failed to convert color string.\n");
+    ret = color_from_string(foreground_color, &terminal->default_foreground_color);
+    ASSERT_TO(fail_on_screen, (ret == 0), "failed to convert color string.\n");
+
+    terminal->foreground_color = terminal->default_foreground_color;
+    terminal->background_color = terminal->default_background_color;
+
     terminal->csi_parameters_index = 0;
+    terminal->attributes = 0;
 
     terminal->screen = (Element*) malloc(sizeof(Element) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
@@ -389,12 +403,13 @@ void csi_free_parameters(int* parameters){
     free(parameters);
 }
 
-unsigned int get_true_color(int r, int g, int b){
-    unsigned int true_color = 0;
-    
-    true_color = ((1 << 24) | (r << 16) | (g << 8) | (b));
-
-    return true_color;
+void csi_log_parameters(int* parameters, int len){
+    int i;
+    LOG(" csi parameters: ");
+    for (i = 0; i < len; i++){
+        LOG("%d;", parameters[i]);
+    }
+    LOG("\n");
 }
 
 // ----------------------------------------------------------------------
@@ -554,6 +569,7 @@ void csi_rm_handler(Terminal* terminal){
 void csi_sgr_handler(Terminal* terminal){
     LOG("csi_sgr_handler()\n");
 
+    int i;
     int len = 0;
     int* parameters = NULL;
 
@@ -561,54 +577,87 @@ void csi_sgr_handler(Terminal* terminal){
     ASSERT(parameters, "failed to get csi parameters.\n");
     ASSERT_TO(fail_on_len, (len > 0), "len of parameters is <= 0.\n");
 
-    switch (parameters[0]){
-        // set background color
-        case (48):
-            // invalid
-            if (len < 2){
-                break;
-            }
-            // means r.g.b colors in next parameters
-            if (parameters[1] != 2){
-                break;
-            }
-            // invalid
-            if (len < 5){
-                break;
-            }
-            LOG("setting background color.\n");
+    csi_log_parameters(parameters, len);
 
-            ELEMENT.background_color = get_true_color( parameters[2],
-                                                       parameters[3], 
-                                                       parameters[4]);
-
-            break;
-
-        // set foreground color
-        case (38):
-            // invalid
-            if (len < 2){
+    for (i = 0; i < len; i++){
+        int left = len - i;
+        switch (parameters[i]){
+            // reset all atrributes of terminal!
+            case (0):
+                RESET_ATTR();
+                terminal->background_color = 0;
+                terminal->foreground_color = 0;
                 break;
-            }
-            // means r.g.b colors in next parameters
-            if (parameters[1] != 2){
+
+            // set bold attribute
+            case (1):
+                SET_ATTR(BOLD_ATTR);
                 break;
-            }
-            // invalid
-            if (len < 5){
+            // set underscore attribute
+            case (4):
+                SET_ATTR(UNDERSCORE_ATTR);
                 break;
-            }
-            LOG("setting foreground color.\n");
 
-            ELEMENT.foreground_color = get_true_color( parameters[2],
-                                                       parameters[3], 
-                                                       parameters[4]);
+            // set background color
+            case (48):
+                if (left < 2) break; // invalid
 
-            break;
+                // means 24bit color: r.g.b colors in next parameters
+                if (parameters[i + 1] == 2){
+                    if (left < 5) break; // invalid
 
-        default:
-            break;
+                    terminal->background_color = TRUE_COLOR_COLOR(  parameters[i + 2],
+                                                                    parameters[i + 3], 
+                                                                    parameters[i + 4]);
+                    i += 4;
+                    break;
+                }
+
+                // means 256 color
+                if (parameters[i + 1] == 5){
+                    if (left < 3) break; // invalid
+
+                    unsigned int color = parameters[i + 2];
+                    LOG("256 color: %d\n", color);
+
+                    i += 2;
+                    break;
+                }
+
+                break;
+
+                // set foreground color
+            case (38):
+                if (left < 2) break; // invalid
+
+                // means 24bit color: r.g.b colors in next parameters
+                if (parameters[i + 1] == 2){
+                    if (left < 5) break; // invalid
+
+                    terminal->foreground_color = TRUE_COLOR_COLOR(  parameters[i + 2],
+                                                                    parameters[i + 3], 
+                                                                    parameters[i + 4]);
+                    i += 4;
+                    break;
+                }
+
+                if (parameters[i + 1] == 5){
+                    if (left > 3) break; // invalid
+
+                    unsigned int color = parameters[i + 2];
+                    LOG("256 color: %d\n", color);
+
+                    i += 2;
+                    break;
+                }
+
+                break;
+
+            default:
+                break;
+        }
     }
+
 
 fail_on_len:
     csi_free_parameters(parameters);
@@ -753,6 +802,9 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
     // insert simple element to the terminal and moving
     // cursor forward.
     ELEMENT.character_code = character_code;
+    ELEMENT.foreground_color = terminal->foreground_color;
+    ELEMENT.background_color = terminal->background_color;
+    ELEMENT.attributes = terminal->attributes;
 
     ret = terminal_forward_cursor(terminal);
     ASSERT(ret == 0, "failed to move cursor forward.\n");

@@ -3,13 +3,26 @@
 
 #include "element.h"
 
-#define CSI_MAX_PARAMETERS_CHARS (16)
+
+
+// attributes definitions
+#define BOLD_ATTR           (1 << 0)
+#define UNDERSCORE_ATTR     (1 << 1)
+#define BLINK_ATTR          (1 << 2)
+#define UNDERLINE_ATTR      (1 << 3)
+
+// mode operations
+#define RESET_ATTR()     (terminal->attributes &= 0)
+#define IS_ATTR(x)       (terminal->attributes & x)
+#define SET_ATTR(x)      (terminal->attributes |= x)
+#define SET_NO_ATTR(x)   (terminal->attributes &= (~x))
 
 typedef struct{
     int x;
     int y;
 }TCursor;
 
+#define CSI_MAX_PARAMETERS_CHARS (16)
 typedef struct{
     int cols_number;
     int rows_number;
@@ -19,7 +32,15 @@ typedef struct{
 
     int start_line_index;
 
+    unsigned int default_background_color;
+    unsigned int default_foreground_color;
+
+    // ---- parameters to keep state of control codes! ----
+
     unsigned int mode;
+    unsigned int attributes;
+    unsigned int background_color;
+    unsigned int foreground_color;
 
     // 16 max number of chars for parameters.
     unsigned char csi_parameters[CSI_MAX_PARAMETERS_CHARS + 1]; 
@@ -27,7 +48,10 @@ typedef struct{
 }Terminal;
 
 
-Terminal* terminal_create(int cols_number, int rows_number);
+Terminal* terminal_create(  int cols_number, 
+                            int rows_number, 
+                            char* background_color,
+                            char* foreground_color);
 void terminal_destroy(Terminal* terminal);
 
 int terminal_resize(Terminal* terminal, 

@@ -1,11 +1,6 @@
 #include "t.h"
+#include "color.h"
 
-
-#define TRUE_COLOR_RED(tc) (((tc) & 0xFF0000) >> 8)
-#define TRUE_COLOR_GREEN(tc) ((tc) & 0xFF00)
-#define TRUE_COLOR_BLUE(tc) (((tc) & 0xFF) << 8)
-
-#define TRUE_COLOR_COLOR(r,g,b) ((1 << 24) | (r << 16) | (g << 8) | (b))
 
 // ------------------------------------------------------------------------------------
 // helper functions
@@ -205,17 +200,12 @@ int draw_element(Element* element, int x, int y){
     XftColor xft_foreground_color;
     XftColor xft_background_color;
 
-    // TODO remove it.
-    if (element->foreground_color == 0){
-        element->foreground_color = TRUE_COLOR_COLOR(255, 255, 255);
-    }
-
-    // create the color
+    // create the colors
     // XColor
 	XRenderColor color = { .alpha = 0xffff };
-    color.red = TRUE_COLOR_RED(element->foreground_color);
-    color.green = TRUE_COLOR_GREEN(element->foreground_color);
-    color.blue = TRUE_COLOR_BLUE(element->foreground_color);
+    color.red = TRUE_COLOR_RED_16BIT(element->foreground_color);
+    color.green = TRUE_COLOR_GREEN_16BIT(element->foreground_color);
+    color.blue = TRUE_COLOR_BLUE_16BIT(element->foreground_color);
 
     ret = XftColorAllocValue(   xterminal.display, 
                                 xterminal.visual,
@@ -224,9 +214,9 @@ int draw_element(Element* element, int x, int y){
                                 &xft_foreground_color);
     ASSERT(ret != 0, "failed to allocate color.\n");
 
-    color.red = TRUE_COLOR_RED(element->background_color);
-    color.green = TRUE_COLOR_GREEN(element->background_color);
-    color.blue = TRUE_COLOR_BLUE(element->background_color);
+    color.red = TRUE_COLOR_RED_16BIT(element->background_color);
+    color.green = TRUE_COLOR_GREEN_16BIT(element->background_color);
+    color.blue = TRUE_COLOR_BLUE_16BIT(element->background_color);
 
     ret = XftColorAllocValue(   xterminal.display, 
                                 xterminal.visual,
@@ -334,7 +324,10 @@ int start(){
     xterminal.width = xterminal.font->width * cols;
     xterminal.height = xterminal.font->height * rows;
 
-    xterminal.terminal = terminal_create(xterminal.width, xterminal.height);
+    xterminal.terminal = terminal_create(   xterminal.width, 
+                                            xterminal.height,
+                                            background_color,
+                                            foreground_color);
     ASSERT(xterminal.terminal, "failed to create terminal.\n");
 
     Window parent;
