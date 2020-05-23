@@ -346,10 +346,6 @@ void (*esc_code_handlers[100])(Terminal* terminal) = {
 // ----------------------------------------------------------------------
 
 // ----------------------------------------------------------------------
-// CSI code handlers
-// ----------------------------------------------------------------------
-
-// ----------------------------------------------------------------------
 // helper functions
 // ----------------------------------------------------------------------
 
@@ -412,6 +408,101 @@ void csi_log_parameters(int* parameters, int len){
     LOG("\n");
 }
 
+// ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// CSI->SGR code handlers
+// ----------------------------------------------------------------------
+
+int sgr_reset_attributes_handler(Terminal* terminal, int* parameters, int left){
+    RESET_ATTR();
+    terminal->background_color = terminal->default_background_color;
+    terminal->foreground_color = terminal->default_foreground_color;
+
+    // this handler does not read more parameters.
+    return 0;
+}
+
+int sgr_set_bold_handler(Terminal* terminal, int* parameters, int left){
+    SET_ATTR(BOLD_ATTR);
+
+    // this handler does not read more parameters.
+    return 0;
+}
+
+int sgr_set_underscore_handler(Terminal* terminal, int* parameters, int left){
+    SET_ATTR(UNDERSCORE_ATTR);
+
+    // this handler does not read more parameters.
+    return 0;
+}
+
+int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
+    ASSERT((left >= 2), "not enough parameters left.\n");
+
+    // means 24bit color: r.g.b colors in next parameters
+    if (parameters[1] == 2){
+        ASSERT((left >= 5), "not enough parameters left.\n");
+
+        terminal->foreground_color = TRUE_COLOR_COLOR(  parameters[2],
+                                                        parameters[3], 
+                                                        parameters[4]);
+        return 4;
+    }
+
+    // means 256 color
+    if (parameters[1] == 5){
+        ASSERT((left >= 3), "not enough parameters left.\n");
+
+        unsigned int color = parameters[2];
+        LOG("256 color: %d\n", color);
+
+        return 2;
+    }
+
+fail:
+    return -1;
+}
+
+int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
+    ASSERT((left >= 2), "not enough parameters left.\n");
+
+    // means 24bit color: r.g.b colors in next parameters
+    if (parameters[1] == 2){
+        ASSERT((left >= 5), "not enough parameters left.\n");
+
+        terminal->background_color = TRUE_COLOR_COLOR(  parameters[2],
+                                                        parameters[3], 
+                                                        parameters[4]);
+        return 4;
+    }
+
+    // means 256 color
+    if (parameters[1] == 5){
+        ASSERT((left >= 3), "not enough parameters left.\n");
+
+        unsigned int color = parameters[2];
+        LOG("256 color: %d\n", color);
+
+        return 2;
+    }
+
+fail:
+    return -1;
+}
+
+int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
+    [0] = sgr_reset_attributes_handler,
+    [1] = sgr_set_bold_handler,
+    [4] = sgr_set_underscore_handler,
+    [38] = sgr_set_foreground_color_handler,
+    [48] = sgr_set_background_color_handler
+};
+
+// ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// CSI code handlers
 // ----------------------------------------------------------------------
 
 void csi_ich_handler(Terminal* terminal){
@@ -569,6 +660,7 @@ void csi_rm_handler(Terminal* terminal){
 void csi_sgr_handler(Terminal* terminal){
     LOG("csi_sgr_handler()\n");
 
+    int ret;
     int i;
     int len = 0;
     int* parameters = NULL;
@@ -581,81 +673,21 @@ void csi_sgr_handler(Terminal* terminal){
 
     for (i = 0; i < len; i++){
         int left = len - i;
-        switch (parameters[i]){
-            // reset all atrributes of terminal!
-            case (0):
-                RESET_ATTR();
-                terminal->background_color = 0;
-                terminal->foreground_color = 0;
-                break;
 
-            // set bold attribute
-            case (1):
-                SET_ATTR(BOLD_ATTR);
-                break;
-            // set underscore attribute
-            case (4):
-                SET_ATTR(UNDERSCORE_ATTR);
-                break;
+        // to prevent out of bound.
+        ASSERT(((parameters[i] >= 0) && (parameters[i] < 200)), 
+               "sgr parameter is not in range.\n");
 
-            // set background color
-            case (48):
-                if (left < 2) break; // invalid
+        ASSERT(sgr_code_handlers[parameters[i]], 
+               "handler to sgr parameter does not exist.\n");
 
-                // means 24bit color: r.g.b colors in next parameters
-                if (parameters[i + 1] == 2){
-                    if (left < 5) break; // invalid
+        ret = (sgr_code_handlers[parameters[i]])(terminal,
+                                                 &parameters[i],
+                                                 left);
+        ASSERT((ret >= 0), "handler failed for parameter: %d\n",
+                            parameters[i]);
 
-                    terminal->background_color = TRUE_COLOR_COLOR(  parameters[i + 2],
-                                                                    parameters[i + 3], 
-                                                                    parameters[i + 4]);
-                    i += 4;
-                    break;
-                }
-
-                // means 256 color
-                if (parameters[i + 1] == 5){
-                    if (left < 3) break; // invalid
-
-                    unsigned int color = parameters[i + 2];
-                    LOG("256 color: %d\n", color);
-
-                    i += 2;
-                    break;
-                }
-
-                break;
-
-                // set foreground color
-            case (38):
-                if (left < 2) break; // invalid
-
-                // means 24bit color: r.g.b colors in next parameters
-                if (parameters[i + 1] == 2){
-                    if (left < 5) break; // invalid
-
-                    terminal->foreground_color = TRUE_COLOR_COLOR(  parameters[i + 2],
-                                                                    parameters[i + 3], 
-                                                                    parameters[i + 4]);
-                    i += 4;
-                    break;
-                }
-
-                if (parameters[i + 1] == 5){
-                    if (left > 3) break; // invalid
-
-                    unsigned int color = parameters[i + 2];
-                    LOG("256 color: %d\n", color);
-
-                    i += 2;
-                    break;
-                }
-
-                break;
-
-            default:
-                break;
-        }
+        i += ret; // continue to next parameters.
     }
 
 
