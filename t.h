@@ -46,7 +46,6 @@ int main();
 // -----------------------------------------------------------------------
 char shell[] = "/bin/sh";
 
-// char font_name[] = "DejaVu Sans";
 char font_name[] = "ubuntu";
 double font_size = 12.0;
 
@@ -57,7 +56,7 @@ unsigned int rows = 24;
 // colors
 // -----------------------------------------------------------------------
 char background_color[] = "#000000";
-char foreground_color[] = "#CCCC44";
+char foreground_color[] = "#FFFFFF";
 
 // -----------------------------------------------------------------------
 // keys

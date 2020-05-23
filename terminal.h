@@ -17,6 +17,12 @@ typedef struct{
     TCursor cursor;
 
     int start_line_index;
+
+    unsigned int mode;
+
+    // 16 max number of chars for parameters.
+    unsigned char csi_parameters[16]; 
+    int csi_parameters_index;
 }Terminal;
 
 
@@ -30,6 +36,8 @@ int terminal_resize(Terminal* terminal,
 int terminal_forward_cursor(Terminal* terminal);
 int terminal_new_line(Terminal* terminal);
 int terminal_empty_line(Terminal* terminal, int y);
+
+int terminal_emulate(Terminal* terminal, unsigned int character_code);
 
 int terminal_push(Terminal* terminal, char* buf, int len);
 Element* terminal_element(Terminal* terminal, int x, int y);
