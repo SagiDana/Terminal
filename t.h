@@ -20,8 +20,6 @@ typedef struct{
     Colormap colormap;
     Window window;
 
-    // XColor background_color;
-    // XColor foreground_color;
     XftColor background_color;
     XftColor foreground_color;
 
@@ -58,7 +56,7 @@ unsigned int rows = 24;
 // colors
 // -----------------------------------------------------------------------
 char background_color[] = "#000000";
-char foreground_color[] = "#FFFFFF";
+char foreground_color[] = "#CCCC44";
 
 // -----------------------------------------------------------------------
 // keys

@@ -53,9 +53,7 @@ fail:
  * the terminal completely for now.. 
  * TODO:
  */
-int terminal_resize(Terminal* terminal, 
-                    int cols_number, 
-                    int rows_number){
+int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
 
     free(terminal->screen);
 

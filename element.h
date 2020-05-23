@@ -4,6 +4,8 @@
 
 typedef struct{
     unsigned int character_code;
+	unsigned int foreground_color;
+	unsigned int background_color;
 }Element;
 
 

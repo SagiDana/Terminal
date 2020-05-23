@@ -190,21 +190,23 @@ int end(){
 }
 
 int draw_element(Element* element, int x, int y){
-    unsigned char element_as_string = (unsigned char) element->character_code;
+    XftGlyphFontSpec xft_glyph_spec;
 
-    // do not draw empty elements.
-    if (element_as_string == 0){
-        return 0;
+    FT_UInt glyph_index = XftCharIndex( xterminal.display, 
+                                        xterminal.font->xft_font, 
+                                        element->character_code);
+
+    if (glyph_index){
+        xft_glyph_spec.font = xterminal.font->xft_font;
+        xft_glyph_spec.glyph = glyph_index;
+        xft_glyph_spec.x = x * xterminal.font->width;
+        xft_glyph_spec.y = (y + 1) * xterminal.font->height;
+
+        XftDrawGlyphFontSpec(   xterminal.xft_draw, 
+                                &xterminal.foreground_color, 
+                                &xft_glyph_spec, 
+                                1);
     }
-
-    XftDrawString8( xterminal.xft_draw,
-                    &xterminal.foreground_color,
-                    xterminal.font->xft_font,
-                    (x * xterminal.font->width),
-                    ((y + 1) * xterminal.font->height),
-                    &element_as_string,
-                    1);
-
     return 0;
 }
 
@@ -320,7 +322,6 @@ int run(){
         if (pty_pending(xterminal.pty)){
             ret = read_from_pty();
             ASSERT(ret == 0, "failed to read from pty.\n");
-            LOG("reading from pty.\n");
             to_draw = TRUE;
         }
 
@@ -339,7 +340,6 @@ int run(){
             ASSERT(ret == 0, "failed to draw.\n");
 
             XSync(xterminal.display, FALSE);
-            LOG("finished to draw.\n");
 
             to_draw = FALSE;
         }
