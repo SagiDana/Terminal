@@ -266,6 +266,17 @@ int draw_element(Element* element, int x, int y){
                                 &xft_glyph_spec, 
                                 1);
     }
+
+    XftColorFree(   xterminal.display,
+                    xterminal.visual,
+                    xterminal.colormap,
+                    &xft_foreground_color);
+
+    XftColorFree(   xterminal.display,
+                    xterminal.visual,
+                    xterminal.colormap,
+                    &xft_background_color);
+
     return 0;
 
 fail:

@@ -37,6 +37,7 @@ int terminal_resize(Terminal* terminal,
 int terminal_forward_cursor(Terminal* terminal);
 int terminal_new_line(Terminal* terminal);
 int terminal_empty_line(Terminal* terminal, int y);
+int terminal_empty(Terminal* terminal);
 
 int terminal_emulate(Terminal* terminal, unsigned int character_code);
 

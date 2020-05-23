@@ -119,6 +119,20 @@ int terminal_empty_line(Terminal* terminal, int y){
     return 0;
 }
 
+int terminal_empty(Terminal* terminal){
+    int ret;
+    int y;
+
+    for (y = 0; y < terminal->rows_number; y++){
+        ret = terminal_empty_line(terminal, y);
+        ASSERT(ret == 0, "failed to empty line\n");
+    }
+    return 0;
+
+fail:
+    return -1;
+}
+
 int terminal_new_line(Terminal* terminal){
     int ret;
 
@@ -419,10 +433,50 @@ void csi_cha_handler(Terminal* terminal){
 
 void csi_cup_handler(Terminal* terminal){
     LOG("csi_cup_handler()\n");
+    int len = 0;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT((parameters == NULL), "not expecting parameters for this.\n");
+
+    terminal->start_line_index = 0;
+    terminal->cursor.x = 0;
+    terminal->cursor.y = 0;
+
+    return;
+
+fail:
+    csi_free_parameters(parameters);
+    return;
 }
 
 void csi_ed_handler(Terminal* terminal){
     LOG("csi_ed_handler()\n");
+    int ret;
+    int len = 0;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
+    ASSERT_TO(fail_on_len, (len > 0), "len of parameters is <= 0.\n");
+    
+    switch (parameters[0]){
+        case (1):
+            break;
+        case (2):
+            ret = terminal_empty(terminal);
+            ASSERT_TO(fail_on_len, (ret == 0), "failed to empty terminal\n");
+            break;
+        case (3):
+            break;
+        default:
+            break;
+    }
+
+fail_on_len:
+    csi_free_parameters(parameters);
+fail:
+    return;
 }
 
 void csi_el_handler(Terminal* terminal){
@@ -505,7 +559,7 @@ void csi_sgr_handler(Terminal* terminal){
 
     parameters = csi_get_parameters(terminal, &len);
     ASSERT(parameters, "failed to get csi parameters.\n");
-    ASSERT((len > 0), "len of parameters is <= 0.\n");
+    ASSERT_TO(fail_on_len, (len > 0), "len of parameters is <= 0.\n");
 
     switch (parameters[0]){
         // set background color
@@ -556,8 +610,8 @@ void csi_sgr_handler(Terminal* terminal){
             break;
     }
 
+fail_on_len:
     csi_free_parameters(parameters);
-
 fail:
     return;
 }
