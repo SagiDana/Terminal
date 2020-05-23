@@ -1,9 +1,10 @@
 #include "t.h"
 
 
-#define TRUE_COLOR_RED(tc) (((tc) >> 16) & 0xFF)
-#define TRUE_COLOR_GREEN(tc) (((tc) >> 8) & 0xFF)
-#define TRUE_COLOR_BLUE(tc) ((tc) & 0xFF)
+#define TRUE_COLOR_RED(tc) (((tc) & 0xFF0000) >> 8)
+#define TRUE_COLOR_GREEN(tc) ((tc) & 0xFF00)
+#define TRUE_COLOR_BLUE(tc) (((tc) & 0xFF) << 8)
+
 #define TRUE_COLOR_COLOR(r,g,b) ((1 << 24) | (r << 16) | (g << 8) | (b))
 
 // ------------------------------------------------------------------------------------
@@ -212,9 +213,9 @@ int draw_element(Element* element, int x, int y){
     // create the color
     // XColor
 	XRenderColor color = { .alpha = 0xffff };
-    color.red = scale_to_16_bit(TRUE_COLOR_RED(element->foreground_color));
-    color.green = scale_to_16_bit(TRUE_COLOR_GREEN(element->foreground_color));
-    color.blue = scale_to_16_bit(TRUE_COLOR_BLUE(element->foreground_color));
+    color.red = TRUE_COLOR_RED(element->foreground_color);
+    color.green = TRUE_COLOR_GREEN(element->foreground_color);
+    color.blue = TRUE_COLOR_BLUE(element->foreground_color);
 
     ret = XftColorAllocValue(   xterminal.display, 
                                 xterminal.visual,
@@ -223,9 +224,9 @@ int draw_element(Element* element, int x, int y){
                                 &xft_foreground_color);
     ASSERT(ret != 0, "failed to allocate color.\n");
 
-    color.red = scale_to_16_bit(TRUE_COLOR_RED(element->background_color));
-    color.green = scale_to_16_bit(TRUE_COLOR_GREEN(element->background_color));
-    color.blue = scale_to_16_bit(TRUE_COLOR_BLUE(element->background_color));
+    color.red = TRUE_COLOR_RED(element->background_color);
+    color.green = TRUE_COLOR_GREEN(element->background_color);
+    color.blue = TRUE_COLOR_BLUE(element->background_color);
 
     ret = XftColorAllocValue(   xterminal.display, 
                                 xterminal.visual,
