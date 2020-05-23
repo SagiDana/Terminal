@@ -17,11 +17,11 @@ int color_from_string(char* string, unsigned int* true_color){
 
     holder[0] = string[3];
     holder[1] = string[4];
-    blue = strtol(holder, NULL, 16);
+    green = strtol(holder, NULL, 16);
 
     holder[0] = string[5];
     holder[1] = string[6];
-    green = strtol(holder, NULL, 16);
+    blue = strtol(holder, NULL, 16);
 
     *true_color = TRUE_COLOR_COLOR(red, green, blue);
 
