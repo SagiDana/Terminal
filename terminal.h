@@ -3,6 +3,7 @@
 
 #include "element.h"
 
+#define CSI_MAX_PARAMETERS_CHARS (16)
 
 typedef struct{
     int x;
@@ -21,7 +22,7 @@ typedef struct{
     unsigned int mode;
 
     // 16 max number of chars for parameters.
-    unsigned char csi_parameters[16]; 
+    unsigned char csi_parameters[CSI_MAX_PARAMETERS_CHARS + 1]; 
     int csi_parameters_index;
 }Terminal;
 

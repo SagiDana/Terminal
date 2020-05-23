@@ -321,6 +321,70 @@ void (*esc_code_handlers[100])(Terminal* terminal) = {
 // CSI code handlers
 // ----------------------------------------------------------------------
 
+// ----------------------------------------------------------------------
+// helper functions
+// ----------------------------------------------------------------------
+
+int* csi_get_parameters(Terminal* terminal, int* len){
+    int* parameters = NULL;
+    int i;
+
+    ASSERT((terminal->csi_parameters_index > 0), "no csi parameters.\n");
+
+    // 16 is the maximum csi parameters.
+    parameters = (int*) malloc(sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
+    memset(parameters, 0, sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
+
+    *len = 0;
+    int parameter_start_index = 0;
+    for (i = 0; i < terminal->csi_parameters_index; i++){
+        if (terminal->csi_parameters[i] == ';'){
+            // null terminating the current parameter.
+            terminal->csi_parameters[i] = 0;
+            // convert parameter to int.
+            parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameter_start_index]);
+
+            // setting paramete_start_index to next parameter
+            parameter_start_index = i + 1;
+            
+            (*len)++;
+        }
+    }
+
+    // null terminating the current parameter.
+    terminal->csi_parameters[i] = 0;
+    // convert parameter to int.
+    parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameter_start_index]);
+
+    // setting paramete_start_index to next parameter
+    parameter_start_index = i + 1;
+
+    (*len)++;
+
+    // reset terminal's csi_parameters (they are not valid any more).
+    memset(terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
+    terminal->csi_parameters_index = 0;
+
+    return parameters;
+
+fail:
+    return NULL;
+}
+
+void csi_free_parameters(int* parameters){
+    free(parameters);
+}
+
+unsigned int get_true_color(int r, int g, int b){
+    unsigned int true_color = 0;
+    
+    true_color = ((1 << 24) | (r << 16) | (g << 8) | (b));
+
+    return true_color;
+}
+
+// ----------------------------------------------------------------------
+
 void csi_ich_handler(Terminal* terminal){
     LOG("csi_ich_handler()\n");
 }
@@ -435,6 +499,67 @@ void csi_rm_handler(Terminal* terminal){
 
 void csi_sgr_handler(Terminal* terminal){
     LOG("csi_sgr_handler()\n");
+
+    int len = 0;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
+    ASSERT((len > 0), "len of parameters is <= 0.\n");
+
+    switch (parameters[0]){
+        // set background color
+        case (48):
+            // invalid
+            if (len < 2){
+                break;
+            }
+            // means r.g.b colors in next parameters
+            if (parameters[1] != 2){
+                break;
+            }
+            // invalid
+            if (len < 5){
+                break;
+            }
+            LOG("setting background color.\n");
+
+            ELEMENT.background_color = get_true_color( parameters[2],
+                                                       parameters[3], 
+                                                       parameters[4]);
+
+            break;
+
+        // set foreground color
+        case (38):
+            // invalid
+            if (len < 2){
+                break;
+            }
+            // means r.g.b colors in next parameters
+            if (parameters[1] != 2){
+                break;
+            }
+            // invalid
+            if (len < 5){
+                break;
+            }
+            LOG("setting foreground color.\n");
+
+            ELEMENT.foreground_color = get_true_color( parameters[2],
+                                                       parameters[3], 
+                                                       parameters[4]);
+
+            break;
+
+        default:
+            break;
+    }
+
+    csi_free_parameters(parameters);
+
+fail:
+    return;
 }
 
 void csi_dsr_handler(Terminal* terminal){
@@ -505,7 +630,7 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
             (control_code == ';')){                         // is semicolon
 
             // too much parameters.
-            if (terminal->csi_parameters_index >= sizeof(terminal->csi_parameters)){
+            if (terminal->csi_parameters_index >= CSI_MAX_PARAMETERS_CHARS){
                 memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
                 terminal->csi_parameters_index = 0;
 

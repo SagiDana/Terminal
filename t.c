@@ -1,6 +1,11 @@
 #include "t.h"
 
 
+#define TRUE_COLOR_RED(tc) (((tc) >> 16) & 0xFF)
+#define TRUE_COLOR_GREEN(tc) (((tc) >> 8) & 0xFF)
+#define TRUE_COLOR_BLUE(tc) ((tc) & 0xFF)
+#define TRUE_COLOR_COLOR(r,g,b) ((1 << 24) | (r << 16) | (g << 8) | (b))
+
 // ------------------------------------------------------------------------------------
 // helper functions
 // ------------------------------------------------------------------------------------
@@ -189,25 +194,81 @@ int end(){
     return 0;
 }
 
-int draw_element(Element* element, int x, int y){
-    XftGlyphFontSpec xft_glyph_spec;
+unsigned short scale_to_16_bit(unsigned int rgb){
+	return rgb == 0 ? 0 : 0x3737 + 0x2828 * rgb;
+}
 
+int draw_element(Element* element, int x, int y){
+    int ret;
+    XftGlyphFontSpec xft_glyph_spec;
+    XftColor xft_foreground_color;
+    XftColor xft_background_color;
+
+    // TODO remove it.
+    if (element->foreground_color == 0){
+        element->foreground_color = TRUE_COLOR_COLOR(255, 255, 255);
+    }
+
+    // create the color
+    // XColor
+	XRenderColor color = { .alpha = 0xffff };
+    color.red = scale_to_16_bit(TRUE_COLOR_RED(element->foreground_color));
+    color.green = scale_to_16_bit(TRUE_COLOR_GREEN(element->foreground_color));
+    color.blue = scale_to_16_bit(TRUE_COLOR_BLUE(element->foreground_color));
+
+    ret = XftColorAllocValue(   xterminal.display, 
+                                xterminal.visual,
+                                xterminal.colormap, 
+                                &color, 
+                                &xft_foreground_color);
+    ASSERT(ret != 0, "failed to allocate color.\n");
+
+    color.red = scale_to_16_bit(TRUE_COLOR_RED(element->background_color));
+    color.green = scale_to_16_bit(TRUE_COLOR_GREEN(element->background_color));
+    color.blue = scale_to_16_bit(TRUE_COLOR_BLUE(element->background_color));
+
+    ret = XftColorAllocValue(   xterminal.display, 
+                                xterminal.visual,
+                                xterminal.colormap, 
+                                &color, 
+                                &xft_background_color);
+    ASSERT(ret != 0, "failed to allocate color.\n");
+
+
+    // create the glyph font spec
     FT_UInt glyph_index = XftCharIndex( xterminal.display, 
                                         xterminal.font->xft_font, 
                                         element->character_code);
 
     if (glyph_index){
+        int draw_x, draw_y;
+
+        draw_x = x * xterminal.font->width;
+        draw_y = y * xterminal.font->height;
+
+        // draw background
+        XftDrawRect(xterminal.xft_draw, 
+                    &xft_background_color, 
+                    draw_x,
+                    draw_y,
+                    xterminal.font->width,
+                    xterminal.font->height);
+
         xft_glyph_spec.font = xterminal.font->xft_font;
         xft_glyph_spec.glyph = glyph_index;
-        xft_glyph_spec.x = x * xterminal.font->width;
+        xft_glyph_spec.x = draw_x;
         xft_glyph_spec.y = (y + 1) * xterminal.font->height;
 
+        // draw foreground
         XftDrawGlyphFontSpec(   xterminal.xft_draw, 
-                                &xterminal.foreground_color, 
+                                &xft_foreground_color, 
                                 &xft_glyph_spec, 
                                 1);
     }
     return 0;
+
+fail:
+    return -1;
 }
 
 int clean_screen(){
