@@ -14,7 +14,8 @@
 // modes definitions
 #define ESC_MODE        (1 << 0)
 #define CSI_MODE        (1 << 1)
-#define PRIVATE_MODE    (1 << 2)
+#define OSC_MODE        (1 << 2)
+#define PRIVATE_MODE    (1 << 3)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
@@ -193,7 +194,6 @@ void bel_handler(Terminal* terminal){
 }
 
 void bs_handler(Terminal* terminal){
-    LOG("bs handler()\n");
     if (terminal->cursor.x > 0){
         ELEMENT.character_code = 0;
         terminal->cursor.x--;
@@ -205,7 +205,6 @@ void ht_handler(Terminal* terminal){
 }
 
 void lf_handler(Terminal* terminal){
-    LOG("lf handler()\n");
     terminal_new_line(terminal);
 }
 
@@ -218,7 +217,6 @@ void ff_handler(Terminal* terminal){
 }
 
 void cr_handler(Terminal* terminal){
-    LOG("cr handler()\n");
     terminal->cursor.x = 0;
 }
 
@@ -241,7 +239,6 @@ void sub_handler(Terminal* terminal){
 }
 
 void esc_handler(Terminal* terminal){
-    LOG("esc handler()\n");
     SET_MODE(ESC_MODE);
 }
 
@@ -250,7 +247,6 @@ void del_handler(Terminal* terminal){
 }
 
 void csi_handler(Terminal* terminal){
-    LOG("csi handler()\n");
     SET_MODE(CSI_MODE);
 }
 
@@ -333,6 +329,7 @@ void esc_decpam_handler(Terminal* terminal){
 
 void esc_osc_handler(Terminal* terminal){
     LOG("esc_osc_handler()\n");
+    SET_MODE(OSC_MODE);
 }
 
 void (*esc_code_handlers[100])(Terminal* terminal) = {
@@ -512,10 +509,12 @@ int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int le
 }
 
 int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
+    LOG("sgr_set_background_color_handler()\n");
     return 0;
 }
 
 int sgr_reverse_video_off_handler(Terminal* terminal, int* parameters, int left){
+    LOG("sgr_reverse_video_off_handler()\n");
     return 0;
 }
 
@@ -585,7 +584,26 @@ void csi_cud_handler(Terminal* terminal){
 }
 
 void csi_cuf_handler(Terminal* terminal){
-    LOG("csi_cuf_handler()\n");
+    int rows;
+    int len = 0;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "no parameters - no where to move.\n");
+
+    ASSERT_TO(fail_on_parameters, (len == 1), "num of parameters is not 1.\n");
+
+    rows = parameters[0];
+    ASSERT_TO(fail_on_parameters, 
+                (BETWEEN(rows, 0, terminal->cols_number - terminal->cursor.x)), 
+                "num of columns is not in range.\n");
+
+    terminal->cursor.x += rows;
+
+fail_on_parameters:
+    csi_free_parameters(parameters);
+fail:
+    return;
 }
 
 void csi_cub_handler(Terminal* terminal){
@@ -605,7 +623,6 @@ void csi_cha_handler(Terminal* terminal){
 }
 
 void csi_cup_handler(Terminal* terminal){
-    LOG("csi_cup_handler()\n");
     int len = 0;
     int* parameters = NULL;
 
@@ -616,7 +633,6 @@ void csi_cup_handler(Terminal* terminal){
         terminal->cursor.y = 0;
         return;
     }
-    csi_log_parameters(parameters, len);
 
     ASSERT((len == 2), "num of parameters is not equal to 2.\n");
 
@@ -635,7 +651,6 @@ fail:
 }
 
 void csi_ed_handler(Terminal* terminal){
-    LOG("csi_ed_handler()\n");
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -688,7 +703,6 @@ fail:
 }
 
 void csi_el_handler(Terminal* terminal){
-    LOG("csi_el_handler()\n");
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -802,8 +816,6 @@ fail:
 }
 
 void csi_sgr_handler(Terminal* terminal){
-    LOG("csi_sgr_handler()\n");
-
     int ret;
     int i;
     int len = 0;
@@ -814,8 +826,6 @@ void csi_sgr_handler(Terminal* terminal){
         sgr_reset_attributes_handler(terminal, NULL, 0);
         return;
     }
-
-    csi_log_parameters(parameters, len);
 
     for (i = 0; i < len; i++){
         int left = len - i;
@@ -843,14 +853,11 @@ fail:
 }
 
 void csi_dsr_handler(Terminal* terminal){
-    LOG("csi_dsr_handler()\n");
     int len;
     int* parameters = NULL;
 
     parameters = csi_get_parameters(terminal, &len);
     ASSERT(parameters, "no csi parameters.\n");
-
-    csi_log_parameters(parameters, len);
 
     // report cursor position.
     if (parameters[0] == 6){
@@ -859,8 +866,8 @@ void csi_dsr_handler(Terminal* terminal){
         int ret;
         buf_len = sprintf(  buf, 
                             "\033[%d;%dR", 
-                            terminal->cursor.y, 
-                            terminal->cursor.x);
+                            terminal->cursor.y + 1, 
+                            terminal->cursor.x + 1);
 
         ret = pty_write(terminal->pty, 
                         buf,
@@ -931,6 +938,27 @@ void (*csi_code_handlers[200])(Terminal* terminal) = {
 
 int handle_control_codes(Terminal* terminal, unsigned int character_code){
     unsigned char control_code = character_code & 0xFF;
+
+	/* 
+     * FROM ST:
+     * 
+	 * STR sequence must be checked before anything else
+	 * because it uses all following characters until it
+	 * receives a ESC, a SUB, a ST or any other C1 control
+	 * character.
+	 */
+    if (IS_MODE(OSC_MODE)){
+        // did end?
+		if ((control_code == '\a') || 
+            (control_code == 0x18) || 
+            (control_code == 0x1A) || 
+            (control_code == 0x1B) ||
+		    (BETWEEN(control_code, 0x80, 0x9F))) {
+            SET_NO_MODE(OSC_MODE);
+        }
+
+        return TRUE;
+    }
 
     if (IS_MODE(CSI_MODE)){
         // check if parameter.
