@@ -59,6 +59,8 @@ int terminal_forward_cursor(Terminal* terminal);
 int terminal_new_line(Terminal* terminal);
 int terminal_empty_line(Terminal* terminal, int y);
 int terminal_empty(Terminal* terminal);
+int terminal_scrolldown(Terminal* terminal, int y, int lines_number);
+int terminal_move_line(Terminal* terminal, int src_y, int dst_y);
 
 int terminal_emulate(Terminal* terminal, unsigned int character_code);
 

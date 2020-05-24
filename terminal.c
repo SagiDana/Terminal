@@ -10,6 +10,7 @@
 #define ELEMENT_X (terminal->cursor.x)
 #define ELEMENT_Y ((terminal->start_line_index + terminal->cursor.y) % terminal->rows_number)
 #define ELEMENT (terminal->screen[(ELEMENT_Y * terminal->cols_number) + ELEMENT_X])
+#define REAL_Y(y) ((terminal->start_line_index + y) % terminal->rows_number)
 
 // modes definitions
 #define ESC_MODE        (1 << 0)
@@ -137,8 +138,7 @@ fail:
 }
 
 int terminal_empty_line(Terminal* terminal, int y){
-    int real_y = ((terminal->start_line_index + y) % terminal->rows_number);
-    memset( &terminal->screen[real_y * terminal->cols_number],
+    memset( &terminal->screen[REAL_Y(y) * terminal->cols_number],
             0,
             sizeof(Element) * terminal->cols_number);
 
@@ -174,6 +174,57 @@ int terminal_new_line(Terminal* terminal){
 
     return 0;
 
+fail:
+    return -1;
+}
+
+int terminal_move_line(Terminal* terminal, int src_y, int dst_y){
+
+    ASSERT((BETWEEN(src_y, 0, terminal->rows_number)), 
+            "src_y is not in range.\n");
+
+    ASSERT((BETWEEN(dst_y, 0, terminal->rows_number)), 
+            "dst_y is not in range.\n");
+
+    memcpy(&terminal->screen[REAL_Y(dst_y) * terminal->cols_number],
+           &terminal->screen[REAL_Y(src_y) * terminal->cols_number],
+           (sizeof(Element) * terminal->cols_number));
+
+    return 0;
+fail:
+    return -1;
+}
+
+int terminal_scrolldown(Terminal* terminal, int y, int lines_number){
+    int ret;
+    int i;
+
+    ASSERT((lines_number > 0), "lines number to scroll invalid.\n");
+
+    int left_lines = (terminal->rows_number - 1) - y - lines_number;
+
+    // we might not care about it 
+    // and can just empty all lines
+    ASSERT((left_lines >= 0), "too much to scroll\n");
+
+    // the order is important here so we dont 
+    // override the lines we need to copy.
+    // so we move the lines from the end to the start.
+    for (i = 0; i < left_lines; i++){
+        ret = terminal_move_line(   terminal,
+                (y + left_lines) - i,
+                (terminal->rows_number - 1) - i);
+        ASSERT(ret == 0, "failed to move line.\n");
+    }
+
+    int empty_lines = (terminal->rows_number - 1) - y - left_lines;
+
+    for (i = 0; i < empty_lines; i++){
+        ret = terminal_empty_line(terminal, y + i);
+        ASSERT(ret == 0, "failed to empty line.\n");
+    }
+
+    return 0;
 fail:
     return -1;
 }
@@ -409,7 +460,9 @@ fail:
 }
 
 void csi_free_parameters(int* parameters){
-    free(parameters);
+    if (parameters){
+        free(parameters);
+    }
 }
 
 void csi_log_parameters(int* parameters, int len){
@@ -743,6 +796,29 @@ fail:
 
 void csi_il_handler(Terminal* terminal){
     LOG("csi_il_handler()\n");
+    int ret;
+    int len = 0;
+    int* parameters = NULL;
+    int blank_lines_number;
+
+    parameters = csi_get_parameters(terminal, &len);
+
+    if (parameters == NULL){
+        blank_lines_number = 1;
+    }
+
+    ASSERT((len <= 1), "too many parameters.\n");
+
+    // ASSERT( BETWEEN(blank_lines_number, terminal->cursor.y, terminal->rows_number), 
+            // "blank lines is more than screen has.\n");
+
+    ret = terminal_scrolldown(  terminal, 
+                                terminal->cursor.y, 
+                                blank_lines_number);
+    ASSERT(ret == 0, "failed to scroll down.\n");
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_dl_handler(Terminal* terminal){
@@ -1095,7 +1171,7 @@ fail:
 Element* terminal_element(Terminal* terminal, int x, int y){
     Element* element = NULL;
 
-    element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
+    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
 
     return element;
 }
@@ -1103,7 +1179,7 @@ Element* terminal_element(Terminal* terminal, int x, int y){
 int terminal_delete_element(Terminal* terminal, int x, int y){
     Element* element = NULL;
 
-    element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
+    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
 
     memset(element, 0, sizeof(Element));
     return 0;
