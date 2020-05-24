@@ -46,7 +46,7 @@ int main();
 // -----------------------------------------------------------------------
 char shell[] = "/bin/sh";
 
-char font_name[] = "ubuntu";
+char font_name[] = "mononoki";
 double font_size = 12.0;
 
 unsigned int cols = 80;

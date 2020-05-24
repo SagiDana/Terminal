@@ -401,7 +401,7 @@ void csi_free_parameters(int* parameters){
 
 void csi_log_parameters(int* parameters, int len){
     int i;
-    LOG(" csi parameters: ");
+    LOG("csi parameters: ");
     for (i = 0; i < len; i++){
         LOG("%d;", parameters[i]);
     }
