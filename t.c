@@ -231,11 +231,16 @@ int draw_element(Element* element, int x, int y){
                                 &xft_background_color);
     ASSERT(ret != 0, "failed to allocate color.\n");
 
+    XftFont* current_font = xterminal.font->normal_font;
+    if (element->attributes & BOLD_ATTR){
+        current_font = xterminal.font->bold_font;
+    }
 
     // create the glyph font spec
     FT_UInt glyph_index = XftCharIndex( xterminal.display, 
-                                        xterminal.font->xft_font, 
+                                        current_font,
                                         element->character_code);
+
 
     if (glyph_index){
         int draw_x, draw_y;
@@ -251,12 +256,12 @@ int draw_element(Element* element, int x, int y){
                     xterminal.font->width,
                     xterminal.font->height);
 
-        xft_glyph_spec.font = xterminal.font->xft_font;
+        xft_glyph_spec.font = current_font;
         xft_glyph_spec.glyph = glyph_index;
         xft_glyph_spec.x = draw_x;
 
         // TODO: find out why this happens. and fix it!
-        xft_glyph_spec.y = (y + 1) * (xterminal.font->height - 1); 
+        xft_glyph_spec.y = (y + 1) * (xterminal.font->height); 
 
         // draw foreground
         XftDrawGlyphFontSpec(   xterminal.xft_draw, 

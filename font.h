@@ -11,7 +11,10 @@
 
 
 typedef struct{
-    XftFont* xft_font;
+    XftFont* normal_font;
+    XftFont* italic_font;
+    XftFont* bold_font;
+    XftFont* italic_bold_font;
     int width;
     int height;
 }TFont;
@@ -21,5 +24,11 @@ TFont* font_create(  Display* display,
                      char* font_name, 
                      double font_size);
 void font_destroy(TFont* font);
+
+XftFont* font_get( Display* display,
+                   int screen,
+                   char* font_name, 
+                   double font_size,
+                   unsigned int style);
 
 #endif

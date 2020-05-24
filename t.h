@@ -48,7 +48,7 @@ int main();
 char shell[] = "/bin/sh";
 
 char font_name[] = "mononoki";
-double font_size = 12.0;
+double font_size = 14.0;
 
 unsigned int cols = 80;
 unsigned int rows = 24;
