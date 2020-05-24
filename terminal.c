@@ -515,10 +515,16 @@ int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int le
     return 0;
 }
 
+int sgr_reverse_video_off_handler(Terminal* terminal, int* parameters, int left){
+    return 0;
+}
+
 int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
     [0] = sgr_reset_attributes_handler,
     [1] = sgr_set_bold_handler,
     [4] = sgr_set_underscore_handler,
+
+    [27] = sgr_reverse_video_off_handler,
 
     [30] = sgr_set_foreground_color_handler,
     [31] = sgr_set_foreground_color_handler,
@@ -540,7 +546,24 @@ int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
     [46] = sgr_set_background_color_handler,
     [47] = sgr_set_background_color_handler,
     [48] = sgr_set_background_24bit_color_handler,
-    [49] = sgr_set_background_color_handler // default
+    [49] = sgr_set_background_color_handler, // default
+
+    [90] = sgr_set_foreground_color_handler,
+    [91] = sgr_set_foreground_color_handler,
+    [92] = sgr_set_foreground_color_handler,
+    [93] = sgr_set_foreground_color_handler,
+    [94] = sgr_set_foreground_color_handler,
+    [95] = sgr_set_foreground_color_handler,
+    [96] = sgr_set_foreground_color_handler,
+    [97] = sgr_set_foreground_color_handler,
+    [100] = sgr_set_background_color_handler,
+    [101] = sgr_set_background_color_handler,
+    [102] = sgr_set_background_color_handler,
+    [103] = sgr_set_background_color_handler,
+    [104] = sgr_set_background_color_handler,
+    [105] = sgr_set_background_color_handler,
+    [106] = sgr_set_background_color_handler,
+    [107] = sgr_set_background_color_handler
 };
 
 // ----------------------------------------------------------------------
@@ -787,8 +810,10 @@ void csi_sgr_handler(Terminal* terminal){
     int* parameters = NULL;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
-    ASSERT_TO(fail_on_len, (len > 0), "len of parameters is <= 0.\n");
+    if (parameters == NULL){
+        sgr_reset_attributes_handler(terminal, NULL, 0);
+        return;
+    }
 
     csi_log_parameters(parameters, len);
 
@@ -811,15 +836,42 @@ void csi_sgr_handler(Terminal* terminal){
         i += ret; // continue to next parameters.
     }
 
-
-fail_on_len:
     csi_free_parameters(parameters);
+
 fail:
     return;
 }
 
 void csi_dsr_handler(Terminal* terminal){
     LOG("csi_dsr_handler()\n");
+    int len;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "no csi parameters.\n");
+
+    csi_log_parameters(parameters, len);
+
+    // report cursor position.
+    if (parameters[0] == 6){
+        char buf[100];
+        int buf_len;
+        int ret;
+        buf_len = sprintf(  buf, 
+                            "\033[%d;%dR", 
+                            terminal->cursor.y, 
+                            terminal->cursor.x);
+
+        ret = pty_write(terminal->pty, 
+                        buf,
+                        buf_len);
+        ASSERT_TO(fail_on_pty_write, (ret >= 0), "failed to write to pty.\n");
+    }
+
+fail_on_pty_write:
+    csi_free_parameters(parameters);
+fail:
+    return;
 }
 
 void csi_decll_handler(Terminal* terminal){
@@ -894,6 +946,8 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
                 SET_NO_MODE(CSI_MODE);
                 SET_NO_MODE(ESC_MODE);
 
+                LOG("too much parameters\n");
+
                 return FALSE;
             }
 
@@ -913,10 +967,10 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
             SET_NO_MODE(ESC_MODE);
 
             return TRUE;
-        }else{
-            LOG("no csi handler found for: %d.\n", control_code);
-            LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
         }
+
+        LOG("no csi handler found for: %d.\n", control_code);
+        LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
 
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
