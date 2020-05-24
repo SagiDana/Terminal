@@ -190,10 +190,6 @@ int end(){
     return 0;
 }
 
-unsigned short scale_to_16_bit(unsigned int rgb){
-	return rgb == 0 ? 0 : 0x3737 + 0x2828 * rgb;
-}
-
 int draw_element(Element* element, int x, int y){
     int ret;
     XftGlyphFontSpec xft_glyph_spec;
@@ -248,13 +244,14 @@ int draw_element(Element* element, int x, int y){
         xft_glyph_spec.font = xterminal.font->xft_font;
         xft_glyph_spec.glyph = glyph_index;
         xft_glyph_spec.x = draw_x;
-        xft_glyph_spec.y = (y + 1) * xterminal.font->height;
+        xft_glyph_spec.y = draw_y;
 
         // draw foreground
         XftDrawGlyphFontSpec(   xterminal.xft_draw, 
                                 &xft_foreground_color, 
                                 &xft_glyph_spec, 
                                 1);
+
     }
 
     XftColorFree(   xterminal.display,
@@ -324,7 +321,12 @@ int start(){
     xterminal.width = xterminal.font->width * cols;
     xterminal.height = xterminal.font->height * rows;
 
-    xterminal.terminal = terminal_create(   xterminal.width, 
+    char* args[] = { shell, NULL };
+    xterminal.pty = pty_create(args);
+    ASSERT(xterminal.pty, "failed creating pty.\n");
+
+    xterminal.terminal = terminal_create(   xterminal.pty,
+                                            xterminal.width, 
                                             xterminal.height,
                                             background_color,
                                             foreground_color);
@@ -368,10 +370,6 @@ int start(){
 
     XMapWindow(xterminal.display, xterminal.window);
     XSync(xterminal.display, FALSE);
-
-    char* args[] = { shell, NULL };
-    xterminal.pty = pty_create(args);
-    ASSERT(xterminal.pty, "failed creating pty.\n");
 
     return 0;
 

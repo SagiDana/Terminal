@@ -2,7 +2,7 @@
 #define TERMINAL_H
 
 #include "element.h"
-
+#include "pty.h"
 
 
 // attributes definitions
@@ -35,6 +35,8 @@ typedef struct{
     unsigned int default_background_color;
     unsigned int default_foreground_color;
 
+    TPty* pty; // the attached pty.
+
     // ---- parameters to keep state of control codes! ----
 
     unsigned int mode;
@@ -48,7 +50,8 @@ typedef struct{
 }Terminal;
 
 
-Terminal* terminal_create(  int cols_number, 
+Terminal* terminal_create(  TPty* pty,
+                            int cols_number, 
                             int rows_number, 
                             char* background_color,
                             char* foreground_color);

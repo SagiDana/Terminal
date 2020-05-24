@@ -20,7 +20,8 @@
 #define SET_MODE(x)      (terminal->mode |= x)
 #define SET_NO_MODE(x)   (terminal->mode &= (~x))
 
-Terminal* terminal_create(  int cols_number, 
+Terminal* terminal_create(  TPty* pty,
+                            int cols_number, 
                             int rows_number, 
                             char* background_color,
                             char* foreground_color){
@@ -30,6 +31,8 @@ Terminal* terminal_create(  int cols_number,
     terminal = (Terminal*) malloc(sizeof(Terminal));
     ASSERT(terminal, "failed to malloc() terminal.\n");
     memset(terminal, 0, sizeof(Terminal));
+
+    terminal->pty = pty;
 
     terminal->cols_number = cols_number;
     terminal->rows_number = rows_number;
