@@ -12,13 +12,21 @@
 #define ELEMENT (terminal->screen[(ELEMENT_Y * terminal->cols_number) + ELEMENT_X])
 
 // modes definitions
-#define ESC_MODE   (1 << 0)
-#define CSI_MODE   (1 << 1)
+#define ESC_MODE        (1 << 0)
+#define CSI_MODE        (1 << 1)
+#define PRIVATE_MODE    (1 << 2)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
 #define SET_MODE(x)      (terminal->mode |= x)
 #define SET_NO_MODE(x)   (terminal->mode &= (~x))
+
+// mode operations
+#define RESET_ATTR()     (terminal->attributes &= 0)
+#define IS_ATTR(x)       (terminal->attributes & x)
+#define SET_ATTR(x)      (terminal->attributes |= x)
+#define SET_NO_ATTR(x)   (terminal->attributes &= (~x))
+
 
 Terminal* terminal_create(  TPty* pty,
                             int cols_number, 
@@ -168,7 +176,6 @@ int terminal_new_line(Terminal* terminal){
 fail:
     return -1;
 }
-
 
 // ----------------------------------------------------------------------
 // Control code handlers
@@ -364,7 +371,13 @@ int* csi_get_parameters(Terminal* terminal, int* len){
 
     *len = 0;
     int parameter_start_index = 0;
-    for (i = 0; i < terminal->csi_parameters_index; i++){
+
+    i = 0;
+    if (terminal->csi_parameters[0] == '?'){
+        SET_MODE(PRIVATE_MODE);
+        i = 1; // skip question mark
+    }
+    for (; i < terminal->csi_parameters_index; i++){
         if (terminal->csi_parameters[i] == ';'){
             // null terminating the current parameter.
             terminal->csi_parameters[i] = 0;
@@ -440,7 +453,7 @@ int sgr_set_underscore_handler(Terminal* terminal, int* parameters, int left){
     return 0;
 }
 
-int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
+int sgr_set_foreground_24bit_color_handler(Terminal* terminal, int* parameters, int left){
     ASSERT((left >= 2), "not enough parameters left.\n");
 
     // means 24bit color: r.g.b colors in next parameters
@@ -467,7 +480,7 @@ fail:
     return -1;
 }
 
-int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
+int sgr_set_background_24bit_color_handler(Terminal* terminal, int* parameters, int left){
     ASSERT((left >= 2), "not enough parameters left.\n");
 
     // means 24bit color: r.g.b colors in next parameters
@@ -494,12 +507,40 @@ fail:
     return -1;
 }
 
+int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
+    return 0;
+}
+
+int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
+    return 0;
+}
+
 int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
     [0] = sgr_reset_attributes_handler,
     [1] = sgr_set_bold_handler,
     [4] = sgr_set_underscore_handler,
-    [38] = sgr_set_foreground_color_handler,
-    [48] = sgr_set_background_color_handler
+
+    [30] = sgr_set_foreground_color_handler,
+    [31] = sgr_set_foreground_color_handler,
+    [32] = sgr_set_foreground_color_handler,
+    [33] = sgr_set_foreground_color_handler,
+    [34] = sgr_set_foreground_color_handler,
+    [35] = sgr_set_foreground_color_handler,
+    [36] = sgr_set_foreground_color_handler,
+    [37] = sgr_set_foreground_color_handler,
+    [38] = sgr_set_foreground_24bit_color_handler,
+    [39] = sgr_set_foreground_color_handler, // default
+
+    [40] = sgr_set_background_color_handler,
+    [41] = sgr_set_background_color_handler,
+    [42] = sgr_set_background_color_handler,
+    [43] = sgr_set_background_color_handler,
+    [44] = sgr_set_background_color_handler,
+    [45] = sgr_set_background_color_handler,
+    [46] = sgr_set_background_color_handler,
+    [47] = sgr_set_background_color_handler,
+    [48] = sgr_set_background_24bit_color_handler,
+    [49] = sgr_set_background_color_handler // default
 };
 
 // ----------------------------------------------------------------------
@@ -546,13 +587,24 @@ void csi_cup_handler(Terminal* terminal){
     int* parameters = NULL;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT((parameters == NULL), "not expecting parameters for this.\n");
+    if (parameters == NULL){
+        // terminal->start_line_index = 0;
+        terminal->cursor.x = 0;
+        terminal->cursor.y = 0;
+        return;
+    }
+    csi_log_parameters(parameters, len);
 
-    terminal->start_line_index = 0;
-    terminal->cursor.x = 0;
-    terminal->cursor.y = 0;
+    ASSERT((len == 2), "num of parameters is not equal to 2.\n");
 
-    return;
+    int row = parameters[0];
+    int col = parameters[1];
+
+    ASSERT((BETWEEN(row, 0, terminal->rows_number)), "row number is not valid.\n");
+    ASSERT((BETWEEN(col, 0, terminal->cols_number)), "col number is not valid.\n");
+
+    terminal->cursor.x = col;
+    terminal->cursor.y = row;
 
 fail:
     csi_free_parameters(parameters);
@@ -564,51 +616,91 @@ void csi_ed_handler(Terminal* terminal){
     int ret;
     int len = 0;
     int* parameters = NULL;
-
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
-    ASSERT_TO(fail_on_len, (len > 0), "len of parameters is <= 0.\n");
     
-    switch (parameters[0]){
-        case (1):
-            break;
-        case (2):
-            ret = terminal_empty(terminal);
-            ASSERT_TO(fail_on_len, (ret == 0), "failed to empty terminal\n");
-            break;
-        case (3):
-            break;
-        default:
-            break;
+    // default: from cursor to end of display
+    if (parameters == NULL){ // default.
+        int i;
+        for (i = terminal->cursor.x; i < terminal->cols_number; i++){
+            ret = terminal_delete_element(  terminal, 
+                                            i, 
+                                            terminal->cursor.y);
+            ASSERT(ret == 0, "failed to delete element.\n");
+        }
+        for (i = terminal->cursor.y; i < terminal->rows_number; i++){
+            ret = terminal_empty_line(terminal, i);
+            ASSERT(ret == 0, "failed to empty line.\n");
+        }
+        return;
+    }
+    
+    ASSERT((len == 1), "number of parameters is not 1.\n");
+
+    if (parameters[0] == 1){ // from start to cursor
+        int i;
+        for (i = 0; i < terminal->cursor.y; i++){
+            ret = terminal_empty_line(terminal, i);
+            ASSERT(ret == 0, "failed to empty line.\n");
+        }
+        for (i = 0; i <= terminal->cursor.x; i++){
+            ret = terminal_delete_element(  terminal, 
+                                            i, 
+                                            terminal->cursor.y);
+            ASSERT(ret == 0, "failed to delete element.\n");
+        }
+    } 
+    if (parameters[0] == 2){ // all display
+        ret = terminal_empty(terminal);
+        ASSERT(ret == 0, "failed to empty terminal.\n");
+    }
+    if (parameters[0] == 3){ // all display + scrollback
+        ret = terminal_empty(terminal);
+        ASSERT(ret == 0, "failed to empty terminal.\n");
+        // TODO erase scrollback when we have one.
     }
 
-fail_on_len:
-    csi_free_parameters(parameters);
 fail:
+    csi_free_parameters(parameters);
     return;
 }
 
 void csi_el_handler(Terminal* terminal){
-    int ret;
-
     LOG("csi_el_handler()\n");
-    // is there parameters?
-    if (terminal->csi_parameters_index > 0){
+    int ret;
+    int len = 0;
+    int* parameters = NULL;
+    parameters = csi_get_parameters(terminal, &len);
 
-    // default delete from cursor to end of line
-    }else{
+    // default: from cursor to end of line 
+    if (parameters == NULL){ // default.
         int i;
-        for (i = terminal->cursor.x; 
-             i < terminal->cols_number;
-             i++){
+        for (i = terminal->cursor.x; i < terminal->cols_number; i++){
             ret = terminal_delete_element(  terminal, 
-                                            i,
+                                            i, 
                                             terminal->cursor.y);
-            ASSERT(ret == 0, "failed to delete an element.\n");
+            ASSERT(ret == 0, "failed to delete element.\n");
         }
+        return;
+    }
+    
+    ASSERT((len == 1), "number of parameters is not 1.\n");
+
+    if (parameters[0] == 1){ // from start to cursor
+        int i;
+        for (i = 0; i <= terminal->cursor.x; i++){
+            ret = terminal_delete_element(  terminal, 
+                                            i, 
+                                            terminal->cursor.y);
+            ASSERT(ret == 0, "failed to delete element.\n");
+        }
+    } 
+    if (parameters[0] == 2){ // all line
+        ret = terminal_empty_line(terminal, terminal->cursor.y);
+        ASSERT(ret == 0, "failed to empty line.\n");
     }
 
 fail:
+    csi_free_parameters(parameters);
     return;
 }
 
@@ -654,10 +746,36 @@ void csi_tbc_handler(Terminal* terminal){
 
 void csi_sm_handler(Terminal* terminal){
     LOG("csi_sm_handler()\n");
+    int len;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
+
+    csi_log_parameters(parameters, len);
+
+    SET_NO_MODE(PRIVATE_MODE);
+
+    csi_free_parameters(parameters);
+fail:
+    return;
 }
 
 void csi_rm_handler(Terminal* terminal){
     LOG("csi_rm_handler()\n");
+    int len;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
+
+    csi_log_parameters(parameters, len);
+
+    SET_NO_MODE(PRIVATE_MODE);
+
+    csi_free_parameters(parameters);
+fail:
+    return;
 }
 
 void csi_sgr_handler(Terminal* terminal){
@@ -765,7 +883,8 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
     if (IS_MODE(CSI_MODE)){
         // check if parameter.
         if ((control_code >= '0' && control_code <= '9') || // is number?
-            (control_code == ';')){                         // is semicolon
+            (control_code == ';') ||                        // is semicolon
+            (control_code == '?')){                         // is question mark (for the beginning)
 
             // too much parameters.
             if (terminal->csi_parameters_index >= CSI_MAX_PARAMETERS_CHARS){
@@ -794,6 +913,9 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
             SET_NO_MODE(ESC_MODE);
 
             return TRUE;
+        }else{
+            LOG("no csi handler found for: %d.\n", control_code);
+            LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
         }
 
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
@@ -808,7 +930,11 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
     if (IS_MODE(ESC_MODE)){
         if (esc_code_handlers[control_code]){
             (esc_code_handlers[control_code])(terminal);
+
+            SET_NO_MODE(ESC_MODE);
             return TRUE;
+        }else{
+            LOG("no esc handler found for: %u\n", control_code);
         }
     }
 
@@ -897,8 +1023,7 @@ int terminal_delete_element(Terminal* terminal, int x, int y){
 
     element = &terminal->screen[(((y + terminal->start_line_index) % terminal->rows_number) * terminal->cols_number) + x];
 
-    element->character_code = 0;
-
+    memset(element, 0, sizeof(Element));
     return 0;
 }
 

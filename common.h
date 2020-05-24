@@ -8,6 +8,7 @@
 #define FALSE (0)
 #define TRUE (!(FALSE))
 
+#define BETWEEN(x, a, b) ((x) >= (a) && ((x) <= (b)))
 
 #define LOG_FILE_PATH "/home/s/terminal.log"
 

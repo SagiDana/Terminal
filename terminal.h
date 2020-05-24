@@ -11,12 +11,6 @@
 #define BLINK_ATTR          (1 << 2)
 #define UNDERLINE_ATTR      (1 << 3)
 
-// mode operations
-#define RESET_ATTR()     (terminal->attributes &= 0)
-#define IS_ATTR(x)       (terminal->attributes & x)
-#define SET_ATTR(x)      (terminal->attributes |= x)
-#define SET_NO_ATTR(x)   (terminal->attributes &= (~x))
-
 typedef struct{
     int x;
     int y;
