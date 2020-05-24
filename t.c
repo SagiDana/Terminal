@@ -74,6 +74,16 @@ void on_configure_notify(XEvent* event){
 
     LOG("resize just happened.\n");
 
+	// XFreePixmap(xterminal.display, xterminal.drawable);
+
+	// xterminal.drawable = XCreatePixmap( xterminal.display, 
+                                        // xterminal.window, 
+                                        // xterminal.width,
+                                        // xterminal.height,
+                                        // DefaultDepth(xterminal.display, xterminal.screen));
+
+	// XftDrawChange(xterminal.xft_draw, xterminal.drawable);
+
     ret = terminal_resize(xterminal.terminal, cols_number, rows_number);
     ASSERT(ret == 0, "failed to resize terminal.\n");
 
@@ -244,7 +254,9 @@ int draw_element(Element* element, int x, int y){
         xft_glyph_spec.font = xterminal.font->xft_font;
         xft_glyph_spec.glyph = glyph_index;
         xft_glyph_spec.x = draw_x;
-        xft_glyph_spec.y = draw_y;
+
+        // TODO: find out why this happens. and fix it!
+        xft_glyph_spec.y = (y + 1) * (xterminal.font->height - 1); 
 
         // draw foreground
         XftDrawGlyphFontSpec(   xterminal.xft_draw, 
@@ -357,11 +369,46 @@ int start(){
                                     xterminal.width,
                                     xterminal.height,
                                     0,
-                                    XDefaultDepth(xterminal.display, xterminal.screen), 
+                                    DefaultDepth(xterminal.display, xterminal.screen), 
                                     InputOutput,
                                     xterminal.visual,
                                     CWBitGravity | CWEventMask | CWColormap | CWBackPixel | CWBorderPixel,
                                     &attrs);
+
+	// xterminal.drawable = XCreatePixmap( xterminal.display, 
+                                        // xterminal.window, 
+                                        // xterminal.width,
+                                        // xterminal.height,
+                                        // DefaultDepth(xterminal.display, xterminal.screen));
+    // ASSERT((xterminal.drawable != BadValue), "failed to create pixmap\n");
+    // ASSERT((xterminal.drawable != BadDrawable), "failed to create pixmap\n");
+    // ASSERT((xterminal.drawable != BadAlloc), "failed to create pixmap\n");
+
+	// XGCValues gcvalues;
+	// memset(&gcvalues, 0, sizeof(gcvalues));
+	// gcvalues.graphics_exposures = FALSE;
+
+	// GC gc = XCreateGC(  xterminal.display, 
+                        // parent, 
+                        // GCGraphicsExposures,
+			            // &gcvalues);
+
+	// XSetForeground( xterminal.display, 
+                    // gc, 
+                    // xterminal.background_color.pixel);
+
+	// XFillRectangle( xterminal.display, 
+                    // xterminal.drawable, 
+                    // gc, 
+                    // 0, 
+                    // 0, 
+                    // xterminal.width, 
+                    // xterminal.height);
+
+    // xterminal.xft_draw = XftDrawCreate( xterminal.display,
+                                        // xterminal.drawable,
+                                        // xterminal.visual,
+                                        // xterminal.colormap);
 
     xterminal.xft_draw = XftDrawCreate( xterminal.display,
                                         xterminal.window,

@@ -19,6 +19,7 @@ typedef struct{
     Visual* visual;
     Colormap colormap;
     Window window;
+    Drawable drawable;
 
     XftColor background_color;
     XftColor foreground_color;

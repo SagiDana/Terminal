@@ -1,6 +1,9 @@
 #ifndef FONT_H
 #define FONT_H
 
+// An amaizing explaination about fontconfig and the history:
+// https://unix.stackexchange.com/questions/338047/how-does-fontconfig-actually-work
+
 #include "common.h"
 
 #include <X11/Xlib.h>
