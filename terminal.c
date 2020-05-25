@@ -257,7 +257,12 @@ void bs_handler(Terminal* terminal){
 }
 
 void ht_handler(Terminal* terminal){
-    LOG("ht handler()\n");
+    int max_x = terminal->cols_number - 1;
+
+    int new_x = terminal->cursor.x + 8;
+    new_x &= 7; // allign to 8 characters.
+
+    terminal->cursor.x = new_x < max_x ? new_x : max_x;
 }
 
 void lf_handler(Terminal* terminal){
@@ -434,7 +439,10 @@ int* csi_get_parameters(Terminal* terminal, int* len){
         if (terminal->csi_parameters[i] == ';'){
             // null terminating the current parameter.
             terminal->csi_parameters[i] = 0;
-            // convert parameter to int.
+
+            // Convert parameter to int:
+            // NOTE: atoi is returning 0 when empty string ("") is given, 
+            // which is exactly what we need.
             parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameters_start_index]);
 
             // setting paramete_start_index to next parameter
@@ -631,38 +639,91 @@ void csi_ich_handler(Terminal* terminal){
 }
 
 void csi_cuu_handler(Terminal* terminal){
-    LOG("csi_cuu_handler()\n");
+    int len = 0;
+    int* parameters = NULL;
+    int rows_number = 1;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT((len <= 1), "cuu -> number of parameters is larger than 1.\n");
+
+    if (len == 1){
+        rows_number = parameters[0];
+    }
+    ASSERT((BETWEEN(rows_number, 
+                    0, 
+                    terminal->cursor.y)),
+           "cuu -> number of rows exceed limit.\n");
+
+    terminal->cursor.y -= rows_number;
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_cud_handler(Terminal* terminal){
-    LOG("csi_cud_handler()\n");
+    int len = 0;
+    int* parameters = NULL;
+    int rows_number = 1;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT((len <= 1), "cud -> number of parameters is larger than 1.\n");
+
+    if (len == 1){
+        rows_number = parameters[0];
+    }
+    ASSERT((BETWEEN(rows_number, 
+                    0, 
+                    (terminal->rows_number - 1) - terminal->cursor.y)),
+           "cud -> number of rows exceed limit.\n");
+
+    terminal->cursor.y += rows_number;
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_cuf_handler(Terminal* terminal){
-    int rows;
     int len = 0;
     int* parameters = NULL;
+    int cols_number = 1;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "no parameters - no where to move.\n");
+    ASSERT((len <= 1), "cuf -> number of parameters is larger than 1.\n");
 
-    ASSERT_TO(fail_on_parameters, (len == 1), "num of parameters is not 1.\n");
+    if (len == 1){
+        cols_number = parameters[0];
+    }
+    ASSERT((BETWEEN(cols_number, 
+                    0, 
+                    (terminal->cols_number - 1) - terminal->cursor.x)),
+           "cuf -> number of cols exceed limit.\n");
 
-    rows = parameters[0];
-    ASSERT_TO(fail_on_parameters, 
-                (BETWEEN(rows, 0, terminal->cols_number - terminal->cursor.x)), 
-                "num of columns is not in range.\n");
+    terminal->cursor.x += cols_number;
 
-    terminal->cursor.x += rows;
-
-fail_on_parameters:
-    csi_free_parameters(parameters);
 fail:
-    return;
+    csi_free_parameters(parameters);
 }
 
 void csi_cub_handler(Terminal* terminal){
-    LOG("csi_cub_handler()\n");
+    int len = 0;
+    int* parameters = NULL;
+    int cols_number = 1;
+
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT((len <= 1), "cub -> number of parameters is larger than 1.\n");
+
+    if (len == 1){
+        cols_number = parameters[0];
+    }
+    ASSERT((BETWEEN(cols_number, 
+                    0, 
+                    terminal->cursor.x)),
+           "cub -> number of cols exceed limit.\n");
+
+    terminal->cursor.x -= cols_number;
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_cnl_handler(Terminal* terminal){
@@ -859,35 +920,35 @@ void csi_tbc_handler(Terminal* terminal){
 
 void csi_sm_handler(Terminal* terminal){
     LOG("csi_sm_handler()\n");
-    // int len;
-    // int* parameters = NULL;
+    int len;
+    int* parameters = NULL;
 
-    // parameters = csi_get_parameters(terminal, &len);
-    // ASSERT(parameters, "failed to get csi parameters.\n");
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
 
-    // csi_log_parameters(parameters, len);
+    csi_log_parameters(parameters, len);
 
-    // SET_NO_MODE(PRIVATE_MODE);
+    SET_NO_MODE(PRIVATE_MODE);
 
-    // csi_free_parameters(parameters);
-// fail:
+    csi_free_parameters(parameters);
+fail:
     return;
 }
 
 void csi_rm_handler(Terminal* terminal){
     LOG("csi_rm_handler()\n");
-    // int len;
-    // int* parameters = NULL;
+    int len;
+    int* parameters = NULL;
 
-    // parameters = csi_get_parameters(terminal, &len);
-    // ASSERT(parameters, "failed to get csi parameters.\n");
+    parameters = csi_get_parameters(terminal, &len);
+    ASSERT(parameters, "failed to get csi parameters.\n");
 
-    // csi_log_parameters(parameters, len);
+    csi_log_parameters(parameters, len);
 
-    // SET_NO_MODE(PRIVATE_MODE);
+    SET_NO_MODE(PRIVATE_MODE);
 
-    // csi_free_parameters(parameters);
-// fail:
+    csi_free_parameters(parameters);
+fail:
     return;
 }
 
@@ -956,8 +1017,6 @@ fail_on_pty_write:
 fail:
     return;
 }
-
-// --------------------------------------------------------------------
 
 void csi_decll_handler(Terminal* terminal){
     LOG("csi_decll_handler()\n");
@@ -1045,32 +1104,38 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
         return FALSE;
     }
 
-    // check if parameter.
-    if ((control_code >= '0' && control_code <= '9') || // is number?
-            (control_code == ';') ||                        // is semicolon
-            (control_code == '?')){                         // is question mark (for the beginning)
+    // did we reached the maximum number of parameters
+    if (terminal->csi_parameters_index == CSI_MAX_PARAMETERS_CHARS){
+        memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
+        terminal->csi_parameters_index = 0;
 
-        // too much parameters.
-        if (terminal->csi_parameters_index >= CSI_MAX_PARAMETERS_CHARS){
-            memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
-            terminal->csi_parameters_index = 0;
+        SET_NO_MODE(CSI_MODE);
+        SET_NO_MODE(ESC_MODE);
 
-            SET_NO_MODE(CSI_MODE);
-            SET_NO_MODE(ESC_MODE);
+        LOG("too much parameters.\n");
 
-            LOG("too much parameters.\n");
+        return FALSE;
+    }
 
-            return FALSE;
-        }
-
+    // handle parameters.
+    if (BETWEEN(control_code, 0x30, 0x3F)){
         terminal->csi_parameters[terminal->csi_parameters_index] = control_code;
         terminal->csi_parameters_index++;
 
         return TRUE;
     }
 
-    if (csi_code_handlers[control_code]){
-        (csi_code_handlers[control_code])(terminal);
+    // TODO:
+    // if (BETWEEN(control_code, 0x20, 0x2F)){
+    // }
+
+    if (BETWEEN(control_code, 0x40, 0x7E)){
+        if (csi_code_handlers[control_code]){
+            (csi_code_handlers[control_code])(terminal);
+        }else{
+            LOG("csi handler wasn't found for: %d\n", control_code);
+            LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
+        }
 
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
@@ -1080,9 +1145,8 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
 
         return TRUE;
     }
-
-    LOG("no csi handler found for: %d.\n", control_code);
-    LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
+    LOG("csi -> control code is out of range: %d.\n", control_code);
+    LOG("csi -> parameters for debuging: \"%s\".\n", terminal->csi_parameters);
 
     memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
     terminal->csi_parameters_index = 0;
