@@ -21,7 +21,7 @@ typedef struct{
     int cols_number;
     int rows_number;
 
-    Element* screen;
+    TElement* screen;
     TCursor cursor;
 
     int start_line_index;
@@ -65,7 +65,7 @@ int terminal_move_line(Terminal* terminal, int src_y, int dst_y);
 int terminal_emulate(Terminal* terminal, unsigned int character_code);
 
 int terminal_push(Terminal* terminal, char* buf, int len);
-Element* terminal_element(Terminal* terminal, int x, int y);
+TElement* terminal_element(Terminal* terminal, int x, int y);
 
 int terminal_delete_element(Terminal* terminal, int x, int y);
 

@@ -64,9 +64,9 @@ Terminal* terminal_create(  TPty* pty,
     terminal->csi_parameters_index = 0;
     terminal->attributes = 0;
 
-    terminal->screen = (Element*) malloc(sizeof(Element) * cols_number * rows_number);
+    terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
-    memset(terminal->screen, 0, sizeof(Element) * cols_number * rows_number);
+    memset(terminal->screen, 0, sizeof(TElement) * cols_number * rows_number);
 
     return terminal;
 
@@ -94,7 +94,6 @@ fail:
  */
 
 int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
-
     free(terminal->screen);
 
     terminal->cols_number = cols_number;
@@ -103,9 +102,9 @@ int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
     terminal->cursor.y = 0;
     terminal->start_line_index = 0;
 
-    terminal->screen = (Element*) malloc(sizeof(Element) * cols_number * rows_number);
+    terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT(terminal->screen, "failed to malloc screen.\n");
-    memset(terminal->screen, 0, sizeof(Element) * cols_number * rows_number);
+    memset(terminal->screen, 0, sizeof(TElement) * cols_number * rows_number);
 
     return 0;
 
@@ -140,7 +139,7 @@ fail:
 int terminal_empty_line(Terminal* terminal, int y){
     memset( &terminal->screen[REAL_Y(y) * terminal->cols_number],
             0,
-            sizeof(Element) * terminal->cols_number);
+            sizeof(TElement) * terminal->cols_number);
 
     return 0;
 }
@@ -188,7 +187,7 @@ int terminal_move_line(Terminal* terminal, int src_y, int dst_y){
 
     memcpy(&terminal->screen[REAL_Y(dst_y) * terminal->cols_number],
            &terminal->screen[REAL_Y(src_y) * terminal->cols_number],
-           (sizeof(Element) * terminal->cols_number));
+           (sizeof(TElement) * terminal->cols_number));
 
     return 0;
 fail:
@@ -1168,8 +1167,8 @@ fail:
     return -1;
 }
 
-Element* terminal_element(Terminal* terminal, int x, int y){
-    Element* element = NULL;
+TElement* terminal_element(Terminal* terminal, int x, int y){
+    TElement* element = NULL;
 
     element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
 
@@ -1177,11 +1176,11 @@ Element* terminal_element(Terminal* terminal, int x, int y){
 }
 
 int terminal_delete_element(Terminal* terminal, int x, int y){
-    Element* element = NULL;
+    TElement* element = NULL;
 
     element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
 
-    memset(element, 0, sizeof(Element));
+    memset(element, 0, sizeof(TElement));
     return 0;
 }
 
