@@ -414,7 +414,9 @@ int* csi_get_parameters(Terminal* terminal, int* len){
     int* parameters = NULL;
     int i;
 
-    ASSERT((terminal->csi_parameters_index > 0), "no csi parameters.\n");
+    if (terminal->csi_parameters_index == 0){ 
+        return NULL;
+    }
 
     parameters = (int*) malloc(sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
     memset(parameters, 0, sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
@@ -457,9 +459,6 @@ int* csi_get_parameters(Terminal* terminal, int* len){
     terminal->csi_parameters_index = 0;
 
     return parameters;
-
-fail:
-    return NULL;
 }
 
 void csi_free_parameters(int* parameters){
@@ -1015,8 +1014,10 @@ void (*csi_code_handlers[200])(Terminal* terminal) = {
 
 // ----------------------------------------------------------------------
 
-int handle_control_codes(Terminal* terminal, unsigned int character_code){
-    unsigned char control_code = character_code & 0xFF;
+int handle_osc_codes(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(OSC_MODE)){
+        return FALSE;
+    }
 
 	/* 
      * FROM ST:
@@ -1026,58 +1027,50 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
 	 * receives a ESC, a SUB, a ST or any other C1 control
 	 * character.
 	 */
-    if (IS_MODE(OSC_MODE)){
-        // did end?
-		if ((control_code == '\a') || 
+
+    // did end?
+    if ((control_code == '\a') || 
             (control_code == 0x18) || 
             (control_code == 0x1A) || 
             (control_code == 0x1B) ||
-		    (BETWEEN(control_code, 0x80, 0x9F))) {
-            SET_NO_MODE(OSC_MODE);
-        }
-
-        return TRUE;
+            (BETWEEN(control_code, 0x80, 0x9F))) {
+        SET_NO_MODE(OSC_MODE);
     }
 
-    if (IS_MODE(CSI_MODE)){
-        // check if parameter.
-        if ((control_code >= '0' && control_code <= '9') || // is number?
+    return TRUE;
+}
+
+int handle_csi_codes(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(CSI_MODE)){
+        return FALSE;
+    }
+
+    // check if parameter.
+    if ((control_code >= '0' && control_code <= '9') || // is number?
             (control_code == ';') ||                        // is semicolon
             (control_code == '?')){                         // is question mark (for the beginning)
 
-            // too much parameters.
-            if (terminal->csi_parameters_index >= CSI_MAX_PARAMETERS_CHARS){
-                memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
-                terminal->csi_parameters_index = 0;
-
-                SET_NO_MODE(CSI_MODE);
-                SET_NO_MODE(ESC_MODE);
-
-                LOG("too much parameters.\n");
-
-                return FALSE;
-            }
-
-            terminal->csi_parameters[terminal->csi_parameters_index] = control_code;
-            terminal->csi_parameters_index++;
-
-            return TRUE;
-        }
-
-        if (csi_code_handlers[control_code]){
-            (csi_code_handlers[control_code])(terminal);
-
+        // too much parameters.
+        if (terminal->csi_parameters_index >= CSI_MAX_PARAMETERS_CHARS){
             memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
             terminal->csi_parameters_index = 0;
 
             SET_NO_MODE(CSI_MODE);
             SET_NO_MODE(ESC_MODE);
 
-            return TRUE;
+            LOG("too much parameters.\n");
+
+            return FALSE;
         }
 
-        LOG("no csi handler found for: %d.\n", control_code);
-        LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
+        terminal->csi_parameters[terminal->csi_parameters_index] = control_code;
+        terminal->csi_parameters_index++;
+
+        return TRUE;
+    }
+
+    if (csi_code_handlers[control_code]){
+        (csi_code_handlers[control_code])(terminal);
 
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
@@ -1085,18 +1078,51 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
         SET_NO_MODE(CSI_MODE);
         SET_NO_MODE(ESC_MODE);
 
+        return TRUE;
+    }
+
+    LOG("no csi handler found for: %d.\n", control_code);
+    LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
+
+    memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
+    terminal->csi_parameters_index = 0;
+
+    SET_NO_MODE(CSI_MODE);
+    SET_NO_MODE(ESC_MODE);
+
+    return FALSE;
+}
+
+int handle_esc_codes(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(ESC_MODE)){
         return FALSE;
     }
 
-    if (IS_MODE(ESC_MODE)){
-        if (esc_code_handlers[control_code]){
-            (esc_code_handlers[control_code])(terminal);
+    if (esc_code_handlers[control_code]){
+        (esc_code_handlers[control_code])(terminal);
 
-            SET_NO_MODE(ESC_MODE);
-            return TRUE;
-        }else{
-            LOG("no esc handler found for: %u\n", control_code);
-        }
+        SET_NO_MODE(ESC_MODE);
+        return TRUE;
+    }else{
+        LOG("no esc handler found for: %u\n", control_code);
+    }
+
+    return TRUE;
+}
+
+int handle_control_codes(Terminal* terminal, unsigned int character_code){
+    unsigned char control_code = character_code & 0xFF;
+
+    if (handle_osc_codes(terminal, control_code)){
+        return TRUE;
+    }
+
+    if (handle_csi_codes(terminal, control_code)){
+        return TRUE;
+    }
+
+    if (handle_esc_codes(terminal, control_code)){
+        return TRUE;
     }
 
     if (control_code_handlers[control_code]){
