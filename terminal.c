@@ -568,11 +568,34 @@ fail:
 }
 
 int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
+    if (BETWEEN(parameters[0], 30, 37) ||
+        BETWEEN(parameters[0], 90, 97)){
+        terminal->foreground_color = parameters[0];
+        return 0;
+    }
+
+    // setting default
+    if (parameters[0] == 39){
+        terminal->foreground_color = terminal->default_foreground_color;
+        return 0;
+    }
+
     return 0;
 }
 
 int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
-    LOG("sgr_set_background_color_handler()\n");
+    if (BETWEEN(parameters[0], 40, 47) ||
+        BETWEEN(parameters[0], 100, 107)){
+        terminal->foreground_color = parameters[0];
+        return 0;
+    }
+
+    // setting default
+    if (parameters[0] == 49){
+        terminal->background_color = terminal->default_background_color;
+        return 0;
+    }
+
     return 0;
 }
 
