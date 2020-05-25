@@ -206,8 +206,8 @@ int draw_element(TElement* element, int x, int y){
     XftGlyphFontSpec xft_glyph_spec;
     XftColor xft_foreground_color;
     XftColor xft_background_color;
-    unsigned int current_foreground_color;
-    unsigned int current_background_color;
+    unsigned int current_foreground_color = 0;
+    unsigned int current_background_color = 0;
 
     // create the colors
     // XColor

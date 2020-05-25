@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+
 /*
  * Visual Studio Code Mappings
  */
@@ -51,18 +52,19 @@ fail:
     return -1;
 }
 
-unsigned int map_4bit_to_true_color(int color){
+unsigned int map_4bit_to_true_color(unsigned int color){
     if (BETWEEN(color, 30, 37)){
         return colors_map[color - 30];
-    }
-    if (BETWEEN(color, 90, 97)){
-        return colors_map[color - 90];
     }
     if (BETWEEN(color, 40, 47)){
         return colors_map[color - 40];
     }
+
+    if (BETWEEN(color, 90, 97)){
+        return colors_map[color - 90 + 8];
+    }
     if (BETWEEN(color, 100, 107)){
-        return colors_map[color - 100];
+        return colors_map[color - 100 + 8];
     }
     return 0;
 }

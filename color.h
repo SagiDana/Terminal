@@ -11,6 +11,6 @@
 
 int color_from_string(char* string, unsigned int* true_color);
 
-unsigned int map_4bit_to_true_color(int color);
+unsigned int map_4bit_to_true_color(unsigned int color);
 
 #endif

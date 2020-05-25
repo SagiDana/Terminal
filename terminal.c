@@ -1127,21 +1127,21 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
         return FALSE;
     }
 
-    // did we reached the maximum number of parameters
-    if (terminal->csi_parameters_index == CSI_MAX_PARAMETERS_CHARS){
-        memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
-        terminal->csi_parameters_index = 0;
-
-        SET_NO_MODE(CSI_MODE);
-        SET_NO_MODE(ESC_MODE);
-
-        LOG("too much parameters.\n");
-
-        return FALSE;
-    }
-
     // handle parameters.
     if (BETWEEN(control_code, 0x30, 0x3F)){
+
+        // did we reached the maximum number of parameters
+        if (terminal->csi_parameters_index == CSI_MAX_PARAMETERS_CHARS){
+            memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
+            terminal->csi_parameters_index = 0;
+
+            SET_NO_MODE(CSI_MODE);
+            SET_NO_MODE(ESC_MODE);
+
+            LOG("too much parameters.\n");
+
+            return FALSE;
+        }
         terminal->csi_parameters[terminal->csi_parameters_index] = control_code;
         terminal->csi_parameters_index++;
 
