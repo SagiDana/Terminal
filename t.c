@@ -196,6 +196,7 @@ int end(){
     pty_destroy(xterminal.pty);
     destroy_colors();
     destroy_fonts();
+    terminal_destroy(xterminal.terminal);
 
     return 0;
 }

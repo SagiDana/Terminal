@@ -7,10 +7,8 @@
 #include <string.h>
 
 
-#define ELEMENT_X (terminal->cursor.x)
-#define ELEMENT_Y ((terminal->start_line_index + terminal->cursor.y) % terminal->rows_number)
-#define ELEMENT (terminal->screen[(ELEMENT_Y * terminal->cols_number) + ELEMENT_X])
 #define REAL_Y(y) ((terminal->start_line_index + y) % terminal->rows_number)
+#define ELEMENT (terminal->screen[(REAL_Y(terminal->cursor.y) * terminal->cols_number) + terminal->cursor.x])
 
 // modes definitions
 #define ESC_MODE        (1 << 0)
@@ -94,7 +92,10 @@ fail:
  */
 
 int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
+    ASSERT(terminal->screen, "trying to resize without any screen.\n");
+
     free(terminal->screen);
+    terminal->screen = NULL;
 
     terminal->cols_number = cols_number;
     terminal->rows_number = rows_number;
@@ -121,7 +122,7 @@ int terminal_rotate_lines(Terminal* terminal){
 int terminal_forward_cursor(Terminal* terminal){
     int ret;
 
-    if (terminal->cursor.x < terminal->cols_number){
+    if (terminal->cursor.x + 1 < terminal->cols_number){
         terminal->cursor.x++;
         return 0;
     }
@@ -267,7 +268,7 @@ void ff_handler(Terminal* terminal){
 }
 
 void cr_handler(Terminal* terminal){
-    terminal->cursor.x = 0;
+    terminal->cursor.x = 0; // return to start of line.
 }
 
 void so_handler(Terminal* terminal){
@@ -279,13 +280,11 @@ void si_handler(Terminal* terminal){
 }
 
 void can_handler(Terminal* terminal){
-    LOG("can handler()\n");
-    SET_NO_MODE(ESC_MODE);
+    SET_NO_MODE(ESC_MODE); // interrupt esc sequence.
 }
 
 void sub_handler(Terminal* terminal){
-    LOG("sub handler()\n");
-    SET_NO_MODE(ESC_MODE);
+    SET_NO_MODE(ESC_MODE); // interrupt esc sequence.
 }
 
 void esc_handler(Terminal* terminal){
@@ -293,7 +292,7 @@ void esc_handler(Terminal* terminal){
 }
 
 void del_handler(Terminal* terminal){
-    LOG("del handler()\n");
+    LOG("del handler()\n"); // ignored?
 }
 
 void csi_handler(Terminal* terminal){
@@ -412,41 +411,41 @@ int* csi_get_parameters(Terminal* terminal, int* len){
 
     ASSERT((terminal->csi_parameters_index > 0), "no csi parameters.\n");
 
-    // 16 is the maximum csi parameters.
     parameters = (int*) malloc(sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
     memset(parameters, 0, sizeof(int) * CSI_MAX_PARAMETERS_CHARS);
 
     *len = 0;
-    int parameter_start_index = 0;
+    int parameters_start_index = 0;
 
     i = 0;
     if (terminal->csi_parameters[0] == '?'){
         SET_MODE(PRIVATE_MODE);
         i = 1; // skip question mark
     }
+
     for (; i < terminal->csi_parameters_index; i++){
         if (terminal->csi_parameters[i] == ';'){
             // null terminating the current parameter.
             terminal->csi_parameters[i] = 0;
             // convert parameter to int.
-            parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameter_start_index]);
+            parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameters_start_index]);
 
             // setting paramete_start_index to next parameter
-            parameter_start_index = i + 1;
+            parameters_start_index = i + 1;
             
             (*len)++;
         }
     }
 
-    // null terminating the current parameter.
-    terminal->csi_parameters[i] = 0;
-    // convert parameter to int.
-    parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameter_start_index]);
+    // if parameters didn't ended with ';'
+    if (parameters_start_index < terminal->csi_parameters_index){
+        // null terminating the current parameter.
+        terminal->csi_parameters[i] = 0;
+        // convert parameter to int.
+        parameters[(*len)] = atoi((char*) &terminal->csi_parameters[parameters_start_index]);
 
-    // setting paramete_start_index to next parameter
-    parameter_start_index = i + 1;
-
-    (*len)++;
+        (*len)++;
+    }
 
     // reset terminal's csi_parameters (they are not valid any more).
     memset(terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
@@ -680,7 +679,6 @@ void csi_cup_handler(Terminal* terminal){
 
     parameters = csi_get_parameters(terminal, &len);
     if (parameters == NULL){
-        // terminal->start_line_index = 0;
         terminal->cursor.x = 0;
         terminal->cursor.y = 0;
         return;
@@ -688,11 +686,11 @@ void csi_cup_handler(Terminal* terminal){
 
     ASSERT((len == 2), "num of parameters is not equal to 2.\n");
 
-    int row = parameters[0];
-    int col = parameters[1];
+    int row = parameters[0] - 1;
+    int col = parameters[1] - 1;
 
-    ASSERT((BETWEEN(row, 0, terminal->rows_number)), "row number is not valid.\n");
-    ASSERT((BETWEEN(col, 0, terminal->cols_number)), "col number is not valid.\n");
+    ASSERT((BETWEEN(row, 0, terminal->rows_number - 1)), "row number is not valid: %d.\n", row);
+    ASSERT((BETWEEN(col, 0, terminal->cols_number - 1)), "col number is not valid: %d.\n", col);
 
     terminal->cursor.x = col;
     terminal->cursor.y = row;
@@ -794,7 +792,6 @@ fail:
 }
 
 void csi_il_handler(Terminal* terminal){
-    LOG("csi_il_handler()\n");
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -858,35 +855,35 @@ void csi_tbc_handler(Terminal* terminal){
 
 void csi_sm_handler(Terminal* terminal){
     LOG("csi_sm_handler()\n");
-    int len;
-    int* parameters = NULL;
+    // int len;
+    // int* parameters = NULL;
 
-    parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
+    // parameters = csi_get_parameters(terminal, &len);
+    // ASSERT(parameters, "failed to get csi parameters.\n");
 
-    csi_log_parameters(parameters, len);
+    // csi_log_parameters(parameters, len);
 
-    SET_NO_MODE(PRIVATE_MODE);
+    // SET_NO_MODE(PRIVATE_MODE);
 
-    csi_free_parameters(parameters);
-fail:
+    // csi_free_parameters(parameters);
+// fail:
     return;
 }
 
 void csi_rm_handler(Terminal* terminal){
     LOG("csi_rm_handler()\n");
-    int len;
-    int* parameters = NULL;
+    // int len;
+    // int* parameters = NULL;
 
-    parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
+    // parameters = csi_get_parameters(terminal, &len);
+    // ASSERT(parameters, "failed to get csi parameters.\n");
 
-    csi_log_parameters(parameters, len);
+    // csi_log_parameters(parameters, len);
 
-    SET_NO_MODE(PRIVATE_MODE);
+    // SET_NO_MODE(PRIVATE_MODE);
 
-    csi_free_parameters(parameters);
-fail:
+    // csi_free_parameters(parameters);
+// fail:
     return;
 }
 
@@ -897,7 +894,9 @@ void csi_sgr_handler(Terminal* terminal){
     int* parameters = NULL;
 
     parameters = csi_get_parameters(terminal, &len);
-    if (parameters == NULL){
+
+    // reset attributes when no parameters provided.
+    if (parameters == NULL){ 
         sgr_reset_attributes_handler(terminal, NULL, 0);
         return;
     }
@@ -906,7 +905,7 @@ void csi_sgr_handler(Terminal* terminal){
         int left = len - i;
 
         // to prevent out of bound.
-        ASSERT(((parameters[i] >= 0) && (parameters[i] < 200)), 
+        ASSERT((BETWEEN(parameters[i], 0, 199)),
                "sgr parameter is not in range.\n");
 
         ASSERT(sgr_code_handlers[parameters[i]], 
@@ -921,10 +920,8 @@ void csi_sgr_handler(Terminal* terminal){
         i += ret; // continue to next parameters.
     }
 
-    csi_free_parameters(parameters);
-
 fail:
-    return;
+    csi_free_parameters(parameters);
 }
 
 void csi_dsr_handler(Terminal* terminal){
@@ -932,7 +929,7 @@ void csi_dsr_handler(Terminal* terminal){
     int* parameters = NULL;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "no csi parameters.\n");
+    ASSERT(parameters, "dsr -> no csi parameters.\n");
 
     // report cursor position.
     if (parameters[0] == 6){
@@ -947,7 +944,7 @@ void csi_dsr_handler(Terminal* terminal){
         ret = pty_write(terminal->pty, 
                         buf,
                         buf_len);
-        ASSERT_TO(fail_on_pty_write, (ret >= 0), "failed to write to pty.\n");
+        ASSERT_TO(fail_on_pty_write, (ret >= 0), "dsr -> failed to write to pty.\n");
     }
 
 fail_on_pty_write:
@@ -955,6 +952,8 @@ fail_on_pty_write:
 fail:
     return;
 }
+
+// --------------------------------------------------------------------
 
 void csi_decll_handler(Terminal* terminal){
     LOG("csi_decll_handler()\n");
@@ -1049,7 +1048,7 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
                 SET_NO_MODE(CSI_MODE);
                 SET_NO_MODE(ESC_MODE);
 
-                LOG("too much parameters\n");
+                LOG("too much parameters.\n");
 
                 return FALSE;
             }
@@ -1119,6 +1118,10 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
     // not a control code:
     // insert simple element to the terminal and moving
     // cursor forward.
+    ASSERT(BETWEEN( (&ELEMENT),
+                    terminal->screen, 
+                    (terminal->screen + (terminal->rows_number * terminal->cols_number * sizeof(TElement)))), 
+            "out of bound!\n");
     ELEMENT.character_code = character_code;
     ELEMENT.foreground_color = terminal->foreground_color;
     ELEMENT.background_color = terminal->background_color;
