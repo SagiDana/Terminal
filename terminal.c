@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 
 #define REAL_Y(y) ((terminal->start_line_index + y) % terminal->rows_number)
@@ -107,6 +108,10 @@ int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
     ASSERT(terminal->screen, "failed to malloc screen.\n");
     memset(terminal->screen, 0, sizeof(TElement) * cols_number * rows_number);
 
+    // Notify shell change in size!
+    pty_resize( terminal->pty, 
+                terminal->cols_number,
+                terminal->rows_number);
     return 0;
 
 fail:

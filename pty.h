@@ -13,9 +13,14 @@ void pty_destroy(TPty* pty);
 int pty_read(   TPty* pty, 
                 char* buf,
                 unsigned int len);
+
 int pty_write(  TPty* pty,
                 char* buf,
                 unsigned int len);
+
+int pty_resize( TPty* pty,
+                int cols_number,
+                int rows_number);
 
 int pty_pending(TPty* pty);
 

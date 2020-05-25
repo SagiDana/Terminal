@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <pty.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 
 
@@ -117,6 +118,21 @@ fail:
     return -1;
 }
 
+int pty_resize( TPty* pty,
+                int cols_number,
+                int rows_number){
+
+    struct winsize window_size = {
+        .ws_col = cols_number,
+        .ws_row = rows_number
+    };
+
+    ioctl(  pty->master, 
+            TIOCSWINSZ, 
+            &window_size);
+
+    return 0;
+}
 
 int pty_pending(TPty* pty){
     int ret;
