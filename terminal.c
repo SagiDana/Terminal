@@ -249,8 +249,10 @@ int terminal_scrolldown(Terminal* terminal, int y, int lines_number){
     int i;
 
     ASSERT((lines_number > 0), "lines number to scroll invalid.\n");
+    ASSERT((BETWEEN(y, terminal->top, terminal->bottom)),
+           "starting scroll position is not in range.\n");
 
-    int left_lines = (terminal->rows_number - 1) - y - lines_number;
+    int left_lines = (terminal->bottom) - y - lines_number;
 
     // we might not care about it 
     // and can just empty all lines
@@ -261,12 +263,12 @@ int terminal_scrolldown(Terminal* terminal, int y, int lines_number){
     // so we move the lines from the end to the start.
     for (i = 0; i < left_lines; i++){
         ret = terminal_move_line(   terminal,
-                (y + left_lines) - i,
-                (terminal->rows_number - 1) - i);
+                                    (y + left_lines) - i,
+                                    terminal->bottom - i);
         ASSERT(ret == 0, "failed to move line.\n");
     }
 
-    int empty_lines = (terminal->rows_number - 1) - y - left_lines;
+    int empty_lines = terminal->bottom - y - left_lines;
 
     for (i = 0; i < empty_lines; i++){
         ret = terminal_empty_line(terminal, y + i);
@@ -308,7 +310,7 @@ void ht_handler(Terminal* terminal){
     int max_x = terminal->cols_number - 1;
 
     int new_x = terminal->cursor.x + 8;
-    new_x &= 7; // allign to 8 characters.
+    new_x &= ~(7); // allign to 8 characters.
 
     terminal->cursor.x = new_x < max_x ? new_x : max_x;
 }
@@ -1336,9 +1338,7 @@ int handle_esc_codes(Terminal* terminal, unsigned char control_code){
     return TRUE;
 }
 
-int handle_control_codes(Terminal* terminal, unsigned int character_code){
-    unsigned char control_code = character_code & 0xFF;
-
+int handle_control_codes(Terminal* terminal, unsigned char control_code){
     if (handle_osc_codes(terminal, control_code)){
         return TRUE;
     }
@@ -1367,9 +1367,13 @@ int handle_control_codes(Terminal* terminal, unsigned int character_code){
 int terminal_emulate(Terminal* terminal, unsigned int character_code){
     int ret;
 
-    ret = handle_control_codes(terminal, character_code);
-    if (ret == TRUE){
-        return 0;
+    // can be control character only if 1 byte.
+    if (BETWEEN(character_code, 0, 0xFF)){
+        unsigned char control_code = character_code & 0xFF;
+        ret = handle_control_codes(terminal, control_code);
+        if (ret == TRUE){
+            return 0;
+        }
     }
 
     // not a control code:
