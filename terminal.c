@@ -499,14 +499,14 @@ int sgr_reset_attributes_handler(Terminal* terminal, int* parameters, int left){
     return 0;
 }
 
-int sgr_set_bold_handler(Terminal* terminal, int* parameters, int left){
+int sgr_bold_on_handler(Terminal* terminal, int* parameters, int left){
     SET_ATTR(BOLD_ATTR);
 
     // this handler does not read more parameters.
     return 0;
 }
 
-int sgr_set_underscore_handler(Terminal* terminal, int* parameters, int left){
+int sgr_underscore_on_handler(Terminal* terminal, int* parameters, int left){
     SET_ATTR(UNDERSCORE_ATTR);
 
     // this handler does not read more parameters.
@@ -599,16 +599,26 @@ int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int le
     return 0;
 }
 
+int sgr_reverse_video_on_handler(Terminal* terminal, int* parameters, int left){
+    LOG("sgr_reverse_video_on_handler()\n");
+
+    SET_ATTR(REVERSE_ATTR);
+    return 0;
+}
+
 int sgr_reverse_video_off_handler(Terminal* terminal, int* parameters, int left){
     LOG("sgr_reverse_video_off_handler()\n");
+
+    SET_NO_ATTR(REVERSE_ATTR);
     return 0;
 }
 
 int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
     [0] = sgr_reset_attributes_handler,
-    [1] = sgr_set_bold_handler,
-    [4] = sgr_set_underscore_handler,
+    [1] = sgr_bold_on_handler,
+    [4] = sgr_underscore_on_handler,
 
+    [7] = sgr_reverse_video_on_handler,
     [27] = sgr_reverse_video_off_handler,
 
     [30] = sgr_set_foreground_color_handler,
@@ -943,36 +953,42 @@ void csi_tbc_handler(Terminal* terminal){
 
 void csi_sm_handler(Terminal* terminal){
     LOG("csi_sm_handler()\n");
-    int len;
-    int* parameters = NULL;
 
-    parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
+    LOG("parameters: %s\n", terminal->csi_parameters);
+    // int len;
+    // int* parameters = NULL;
 
-    csi_log_parameters(parameters, len);
+    
+    // parameters = csi_get_parameters(terminal, &len);
+    // ASSERT(parameters, "failed to get csi parameters.\n");
 
-    SET_NO_MODE(PRIVATE_MODE);
+    // csi_log_parameters(parameters, len);
 
-    csi_free_parameters(parameters);
-fail:
-    return;
+
+    // SET_NO_MODE(PRIVATE_MODE);
+
+    // csi_free_parameters(parameters);
+// fail:
+    // return;
 }
 
 void csi_rm_handler(Terminal* terminal){
     LOG("csi_rm_handler()\n");
-    int len;
-    int* parameters = NULL;
+    
+    LOG("parameters: %s\n", terminal->csi_parameters);
+    // int len;
+    // int* parameters = NULL;
 
-    parameters = csi_get_parameters(terminal, &len);
-    ASSERT(parameters, "failed to get csi parameters.\n");
+    // parameters = csi_get_parameters(terminal, &len);
+    // ASSERT(parameters, "failed to get csi parameters.\n");
 
-    csi_log_parameters(parameters, len);
+    // csi_log_parameters(parameters, len);
 
-    SET_NO_MODE(PRIVATE_MODE);
+    // SET_NO_MODE(PRIVATE_MODE);
 
-    csi_free_parameters(parameters);
-fail:
-    return;
+    // csi_free_parameters(parameters);
+// fail:
+    // return;
 }
 
 void csi_sgr_handler(Terminal* terminal){
@@ -997,7 +1013,8 @@ void csi_sgr_handler(Terminal* terminal){
                "sgr parameter is not in range.\n");
 
         ASSERT(sgr_code_handlers[parameters[i]], 
-               "handler to sgr parameter does not exist.\n");
+               "handler to sgr parameter does not exist: %d.\n", 
+                            parameters[i]);
 
         ret = (sgr_code_handlers[parameters[i]])(terminal,
                                                  &parameters[i],
@@ -1047,6 +1064,7 @@ void csi_decll_handler(Terminal* terminal){
 
 void csi_decstbm_handler(Terminal* terminal){
     LOG("csi_decstbm_handler()\n");
+    LOG("parameters: %s\n", terminal->csi_parameters);
 }
 
 void csi_save_cursor_handler(Terminal* terminal){
@@ -1128,7 +1146,8 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
     }
 
     // handle parameters.
-    if (BETWEEN(control_code, 0x30, 0x3F)){
+    if (BETWEEN(control_code, 0x30, 0x3F) ||
+        BETWEEN(control_code, 0x20, 0x2F)){
 
         // did we reached the maximum number of parameters
         if (terminal->csi_parameters_index == CSI_MAX_PARAMETERS_CHARS){

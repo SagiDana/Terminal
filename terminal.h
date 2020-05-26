@@ -10,6 +10,7 @@
 #define UNDERSCORE_ATTR     (1 << 1)
 #define BLINK_ATTR          (1 << 2)
 #define UNDERLINE_ATTR      (1 << 3)
+#define REVERSE_ATTR        (1 << 4)
 
 typedef struct{
     int x;
