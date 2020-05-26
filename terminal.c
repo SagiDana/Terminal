@@ -1055,6 +1055,37 @@ void csi_dch_handler(Terminal* terminal){
 
 void csi_ech_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_ech_handler");
+
+    int chars_number;
+    int len;
+    int* parameters = NULL;
+
+    parameters = csi_get_parameters(terminal, &len);
+    if (parameters == NULL || parameters[0] <= 0){
+        chars_number = 1; // ther default.
+    }else{
+        ASSERT((len == 1), "csi_ech_handler number of parameters is: %d\n", len);
+
+        // max
+        int max_chars = terminal->cols_number - 1 - terminal->cursor.x;
+
+        ASSERT(BETWEEN(parameters[0], 1, max_chars),
+               "the parameter of csi_ech is not in range\n");
+
+        chars_number = parameters[0];
+    }
+
+    int ret;
+    int i; 
+    for (i = 0; i < chars_number; i++){
+        ret = terminal_empty_element(   terminal, 
+                                        terminal->cursor.x + i,
+                                        terminal->cursor.y);
+        ASSERT(ret == 0, "csi_ech failed to empty element.\n");
+    }
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_hpr_handler(Terminal* terminal){
@@ -1355,6 +1386,10 @@ void (*csi_code_handlers[200])(Terminal* terminal) = {
 
 // ----------------------------------------------------------------------
 
+// ----------------------------------------------------------------------
+// Top level handlers
+// ----------------------------------------------------------------------
+
 int handle_csi_dol_codes(Terminal* terminal, unsigned char control_code){
     if (!IS_MODE(CSI_DOL_MODE)){
         return FALSE;
@@ -1473,6 +1508,7 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
 
+        SET_NO_MODE(PRIVATE_MODE);
         SET_NO_MODE(CSI_MODE);
         SET_NO_MODE(ESC_MODE);
 
@@ -1484,6 +1520,7 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
     memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
     terminal->csi_parameters_index = 0;
 
+    SET_NO_MODE(PRIVATE_MODE);
     SET_NO_MODE(CSI_MODE);
     SET_NO_MODE(ESC_MODE);
 
@@ -1585,6 +1622,8 @@ int handle_control_codes(Terminal* terminal, unsigned char control_code){
 
     return FALSE;
 }
+
+// ----------------------------------------------------------------------
 
 /*
  * This it the main function of the terminal. it gets 
