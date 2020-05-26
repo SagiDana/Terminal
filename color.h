@@ -13,4 +13,6 @@ int color_from_string(char* string, unsigned int* true_color);
 
 unsigned int map_4bit_to_true_color(unsigned int color);
 
+unsigned int get_xterm_color(int color_index);
+
 #endif

@@ -638,8 +638,9 @@ int sgr_set_foreground_24bit_color_handler(Terminal* terminal, int* parameters, 
     if (parameters[1] == 5){
         ASSERT((left >= 3), "not enough parameters left.\n");
 
-        unsigned int color = parameters[2];
-        LOG("256 color: %d\n", color);
+        ASSERT((BETWEEN(parameters[2], 0, 256)), "256 color not in range.\n");
+
+        terminal->foreground_color = parameters[2];
 
         return 2;
     }
@@ -667,8 +668,9 @@ int sgr_set_background_24bit_color_handler(Terminal* terminal, int* parameters, 
     if (parameters[1] == 5){
         ASSERT((left >= 3), "not enough parameters left.\n");
 
-        unsigned int color = parameters[2];
-        LOG("256 color: %d\n", color);
+        ASSERT((BETWEEN(parameters[2], 0, 256)), "256 color not in range.\n");
+
+        terminal->background_color = parameters[2];
 
         return 2;
     }

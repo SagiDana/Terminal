@@ -226,10 +226,28 @@ int draw_element(TElement* element, int x, int y){
     }
 
 	XRenderColor color = { .alpha = 0xffff };
-    current_foreground_color = map_4bit_to_true_color(element_foreground_color);
-    if (current_foreground_color == 0){
+
+    if (element_foreground_color < 16){
+        current_foreground_color = map_4bit_to_true_color(element_foreground_color);
+    }else if (element_foreground_color < 256){
+        current_foreground_color = get_xterm_color(element_foreground_color);
+    }else{
         current_foreground_color = element_foreground_color;
     }
+
+    current_background_color = map_4bit_to_true_color(element_background_color);
+    if (current_background_color == 0){
+        current_background_color = element_background_color;
+    }
+
+    if (element_background_color < 16){
+        current_background_color = map_4bit_to_true_color(element_background_color);
+    }else if (element_background_color < 256){
+        current_background_color = get_xterm_color(element_background_color);
+    }else{
+        current_background_color = element_background_color;
+    }
+
     color.red = TRUE_COLOR_RED_16BIT(current_foreground_color);
     color.green = TRUE_COLOR_GREEN_16BIT(current_foreground_color);
     color.blue = TRUE_COLOR_BLUE_16BIT(current_foreground_color);
@@ -241,10 +259,6 @@ int draw_element(TElement* element, int x, int y){
                                 &xft_foreground_color);
     ASSERT(ret != 0, "failed to allocate color.\n");
 
-    current_background_color = map_4bit_to_true_color(element_background_color);
-    if (current_background_color == 0){
-        current_background_color = element_background_color;
-    }
     color.red = TRUE_COLOR_RED_16BIT(current_background_color);
     color.green = TRUE_COLOR_GREEN_16BIT(current_background_color);
     color.blue = TRUE_COLOR_BLUE_16BIT(current_background_color);
