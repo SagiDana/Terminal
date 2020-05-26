@@ -29,6 +29,47 @@
 #define SET_NO_ATTR(x)   (terminal->attributes &= (~x))
 
 
+// ------------------------------------------------------------
+// debug escaped handlers macros.
+// ------------------------------------------------------------
+
+#define DEBUG_ESC
+#define DEBUG_CSI
+#define DEBUG_SGR
+
+#ifdef DEBUG_ESC
+#define DEBUG_ESC_HANDLER(handler) do {                                 \
+    LOG("DEBUG_ESC: handler: %s.\n", handler);                          \
+}while(0)
+#else
+#define DEBUG_ESC_HANDLER(handler) ()
+#endif
+
+#ifdef DEBUG_CSI
+#define DEBUG_CSI_HANDLER(handler) do {                                 \
+    LOG("DEBUG_CSI: handler: %s.\n", handler);                          \
+    LOG("DEBUG_CSI: parameters:\"%s\".\n", terminal->csi_parameters);   \
+}while(0)
+#else
+#define DEBUG_CSI_HANDLER(handler) ()
+#endif
+
+#ifdef DEBUG_SGR
+#define DEBUG_SGR_HANDLER(handler) do {                                 \
+    LOG("DEBUG_SGR: handler: %s.\n", handler);                          \
+    LOG("DEBUG_SGR: parameters:\n");                                    \
+    for (int i = 0; i < left; i++){                                     \
+        LOG("\t parameter[%d]: %d\n", i, parameters[i]);                \
+    }                                                                   \
+}while(0)
+#else
+#define DEBUG_SGR_HANDLER(handler) ()
+#endif
+
+// ------------------------------------------------------------
+
+
+
 Terminal* terminal_create(  TPty* pty,
                             int cols_number, 
                             int rows_number, 
@@ -45,6 +86,9 @@ Terminal* terminal_create(  TPty* pty,
 
     terminal->cols_number = cols_number;
     terminal->rows_number = rows_number;
+
+    terminal->top = 0;
+    terminal->bottom = rows_number - 1;
 
     terminal->start_line_index = 0;
 
@@ -241,15 +285,17 @@ fail:
 // ----------------------------------------------------------------------
 
 void null_handler(Terminal* terminal){
-    LOG("NULL control!\n");
+    DEBUG_ESC_HANDLER("null_handler");
 }
 
 void bel_handler(Terminal* terminal){
     // I hate this thing, might not even implement this shit!
-    LOG("bel handler()\n");
+    DEBUG_ESC_HANDLER("bel_handler");
 }
 
 void bs_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("bs_handler");
+
     if (terminal->cursor.x > 0){
         ELEMENT.character_code = 0;
         terminal->cursor.x--;
@@ -257,6 +303,8 @@ void bs_handler(Terminal* terminal){
 }
 
 void ht_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("ht_handler");
+
     int max_x = terminal->cols_number - 1;
 
     int new_x = terminal->cursor.x + 8;
@@ -266,46 +314,59 @@ void ht_handler(Terminal* terminal){
 }
 
 void lf_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("lf_handler");
+
     terminal_new_line(terminal);
 }
 
 void vt_handler(Terminal* terminal){
-    LOG("vt handler()\n");
+    DEBUG_ESC_HANDLER("vt_handler");
 }
 
 void ff_handler(Terminal* terminal){
-    LOG("ff handler()\n");
+    DEBUG_ESC_HANDLER("ff_handler");
 }
 
 void cr_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("cr_handler");
+
     terminal->cursor.x = 0; // return to start of line.
 }
 
 void so_handler(Terminal* terminal){
-    LOG("so handler()\n");
+    DEBUG_ESC_HANDLER("so_handler");
 }
 
 void si_handler(Terminal* terminal){
-    LOG("si handler()\n");
+    DEBUG_ESC_HANDLER("si_handler");
 }
 
 void can_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("can_handler");
+
     SET_NO_MODE(ESC_MODE); // interrupt esc sequence.
 }
 
 void sub_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("sub_handler");
+
     SET_NO_MODE(ESC_MODE); // interrupt esc sequence.
 }
 
 void esc_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_handler");
+
     SET_MODE(ESC_MODE);
 }
 
 void del_handler(Terminal* terminal){
-    LOG("del handler()\n"); // ignored?
+    DEBUG_ESC_HANDLER("del_handler");
+    // ignored?
 }
 
 void csi_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("csi_handler");
+
     SET_MODE(CSI_MODE);
 }
 
@@ -335,59 +396,60 @@ void (*control_code_handlers[0x100])(Terminal* terminal) = {
 // ----------------------------------------------------------------------
 
 void esc_ris_handler(Terminal* terminal){
-    LOG("esc_ris_handler()\n");
+    DEBUG_ESC_HANDLER("esc_ris_handler");
 }
 
 void esc_ind_handler(Terminal* terminal){
-    LOG("esc_ind_handler()\n");
+    DEBUG_ESC_HANDLER("esc_ind_handler");
 }
 
 void esc_nel_handler(Terminal* terminal){
-    LOG("esc_nel_handler()\n");
+    DEBUG_ESC_HANDLER("esc_nel_handler");
 }
 
 void esc_hts_handler(Terminal* terminal){
-    LOG("esc_hts_handler()\n");
+    DEBUG_ESC_HANDLER("esc_hts_handler");
 }
 
 void esc_ri_handler(Terminal* terminal){
-    LOG("esc_ri_handler()\n");
+    DEBUG_ESC_HANDLER("esc_ri_handler");
 }
 
 void esc_decid_handler(Terminal* terminal){
-    LOG("esc_decid_handler()\n");
+    DEBUG_ESC_HANDLER("esc_decid_handler");
 }
 
 void esc_decsc_handler(Terminal* terminal){
-    LOG("esc_decsc_handler()\n");
+    DEBUG_ESC_HANDLER("esc_decsc_handler");
 }
 
 void esc_decrc_handler(Terminal* terminal){
-    LOG("esc_decrc_handler()\n");
+    DEBUG_ESC_HANDLER("esc_decrc_handler");
 }
 
 void esc_select_charset_handler(Terminal* terminal){
-    LOG("esc_select_charset_handler()\n");
+    DEBUG_ESC_HANDLER("esc_select_charset_handler");
 }
 
 void esc_define_g0_charset_handler(Terminal* terminal){
-    LOG("esc_define_g0_charset_handler()\n");
+    DEBUG_ESC_HANDLER("esc_define_g0_charset_handler");
 }
 
 void esc_define_g1_charset_handler(Terminal* terminal){
-    LOG("esc_define_g1_charset_handler()\n");
+    DEBUG_ESC_HANDLER("esc_define_g1_charset_handler");
 }
 
 void esc_decpnm_handler(Terminal* terminal){
-    LOG("esc_decpnm_handler()\n");
+    DEBUG_ESC_HANDLER("esc_decpnm_handler");
 }
 
 void esc_decpam_handler(Terminal* terminal){
-    LOG("esc_decpam_handler()\n");
+    DEBUG_ESC_HANDLER("esc_decpam_handler");
 }
 
 void esc_osc_handler(Terminal* terminal){
-    LOG("esc_osc_handler()\n");
+    DEBUG_ESC_HANDLER("esc_osc_handler");
+
     SET_MODE(OSC_MODE);
 }
 
@@ -491,6 +553,8 @@ void csi_log_parameters(int* parameters, int len){
 // ----------------------------------------------------------------------
 
 int sgr_reset_attributes_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_reset_attributes_handler");
+
     RESET_ATTR();
     terminal->background_color = terminal->default_background_color;
     terminal->foreground_color = terminal->default_foreground_color;
@@ -500,6 +564,8 @@ int sgr_reset_attributes_handler(Terminal* terminal, int* parameters, int left){
 }
 
 int sgr_bold_on_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_bold_on_handler");
+
     SET_ATTR(BOLD_ATTR);
 
     // this handler does not read more parameters.
@@ -507,6 +573,8 @@ int sgr_bold_on_handler(Terminal* terminal, int* parameters, int left){
 }
 
 int sgr_underscore_on_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_underscore_on_handler");
+
     SET_ATTR(UNDERSCORE_ATTR);
 
     // this handler does not read more parameters.
@@ -514,6 +582,8 @@ int sgr_underscore_on_handler(Terminal* terminal, int* parameters, int left){
 }
 
 int sgr_set_foreground_24bit_color_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_set_foreground_24bit_color_handler");
+
     ASSERT((left >= 2), "not enough parameters left.\n");
 
     // means 24bit color: r.g.b colors in next parameters
@@ -541,6 +611,8 @@ fail:
 }
 
 int sgr_set_background_24bit_color_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_set_background_24bit_color_handler");
+
     ASSERT((left >= 2), "not enough parameters left.\n");
 
     // means 24bit color: r.g.b colors in next parameters
@@ -568,6 +640,8 @@ fail:
 }
 
 int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_set_foreground_color_handler");
+
     if (BETWEEN(parameters[0], 30, 37) ||
         BETWEEN(parameters[0], 90, 97)){
         terminal->foreground_color = parameters[0];
@@ -584,6 +658,8 @@ int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int le
 }
 
 int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
+    DEBUG_SGR_HANDLER("sgr_set_background_color_handler");
+
     if (BETWEEN(parameters[0], 40, 47) ||
         BETWEEN(parameters[0], 100, 107)){
         terminal->foreground_color = parameters[0];
@@ -600,14 +676,14 @@ int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int le
 }
 
 int sgr_reverse_video_on_handler(Terminal* terminal, int* parameters, int left){
-    LOG("sgr_reverse_video_on_handler()\n");
+    DEBUG_SGR_HANDLER("sgr_reverse_video_on_handler");
 
     SET_ATTR(REVERSE_ATTR);
     return 0;
 }
 
 int sgr_reverse_video_off_handler(Terminal* terminal, int* parameters, int left){
-    LOG("sgr_reverse_video_off_handler()\n");
+    DEBUG_SGR_HANDLER("sgr_reverse_video_off_handler");
 
     SET_NO_ATTR(REVERSE_ATTR);
     return 0;
@@ -668,10 +744,12 @@ int (*sgr_code_handlers[108])(Terminal* terminal, int* parameters, int left) = {
 // ----------------------------------------------------------------------
 
 void csi_ich_handler(Terminal* terminal){
-    LOG("csi_ich_handler()\n");
+    DEBUG_CSI_HANDLER("csi_ich_handler");
 }
 
 void csi_cuu_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_cuu_handler");
+
     int len = 0;
     int* parameters = NULL;
     int rows_number = 1;
@@ -694,6 +772,8 @@ fail:
 }
 
 void csi_cud_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_cud_handler");
+
     int len = 0;
     int* parameters = NULL;
     int rows_number = 1;
@@ -716,6 +796,8 @@ fail:
 }
 
 void csi_cuf_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_cuf_handler");
+
     int len = 0;
     int* parameters = NULL;
     int cols_number = 1;
@@ -738,6 +820,8 @@ fail:
 }
 
 void csi_cub_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_cub_handler");
+
     int len = 0;
     int* parameters = NULL;
     int cols_number = 1;
@@ -760,18 +844,20 @@ fail:
 }
 
 void csi_cnl_handler(Terminal* terminal){
-    LOG("csi_cnl_handler()\n");
+    DEBUG_CSI_HANDLER("csi_cnl_handler");
 }
 
 void csi_cpl_handler(Terminal* terminal){
-    LOG("csi_cpl_handler()\n");
+    DEBUG_CSI_HANDLER("csi_cpl_handler");
 }
 
 void csi_cha_handler(Terminal* terminal){
-    LOG("csi_cha_handler()\n");
+    DEBUG_CSI_HANDLER("csi_cha_handler");
 }
 
 void csi_cup_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_cup_handler");
+
     int len = 0;
     int* parameters = NULL;
 
@@ -799,6 +885,8 @@ fail:
 }
 
 void csi_ed_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_ed_handler");
+
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -851,6 +939,8 @@ fail:
 }
 
 void csi_el_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_el_handler");
+
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -890,6 +980,8 @@ fail:
 }
 
 void csi_il_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_il_handler");
+
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -916,45 +1008,43 @@ fail:
 }
 
 void csi_dl_handler(Terminal* terminal){
-    LOG("csi_dl_handler()\n");
+    DEBUG_CSI_HANDLER("csi_dl_handler");
 }
 
 void csi_dch_handler(Terminal* terminal){
-    LOG("csi_dch_handler()\n");
+    DEBUG_CSI_HANDLER("csi_dch_handler");
 }
 
 void csi_ech_handler(Terminal* terminal){
-    LOG("csi_ech_handler()\n");
+    DEBUG_CSI_HANDLER("csi_ech_handler");
 }
 
 void csi_hpr_handler(Terminal* terminal){
-    LOG("csi_hpr_handler()\n");
+    DEBUG_CSI_HANDLER("csi_hpr_handler");
 }
 
 void csi_da_handler(Terminal* terminal){
-    LOG("csi_da_handler()\n");
+    DEBUG_CSI_HANDLER("csi_da_handler");
 }
 
 void csi_vpa_handler(Terminal* terminal){
-    LOG("csi_vpa_handler()\n");
+    DEBUG_CSI_HANDLER("csi_vpa_handler");
 }
 
 void csi_vpr_handler(Terminal* terminal){
-    LOG("csi_vpr_handler()\n");
+    DEBUG_CSI_HANDLER("csi_vpr_handler");
 }
 
 void csi_hvp_handler(Terminal* terminal){
-    LOG("csi_hvp_handler()\n");
+    DEBUG_CSI_HANDLER("csi_hvp_handler");
 }
 
 void csi_tbc_handler(Terminal* terminal){
-    LOG("csi_tbc_handler()\n");
+    DEBUG_CSI_HANDLER("csi_tbc_handler");
 }
 
 void csi_sm_handler(Terminal* terminal){
-    LOG("csi_sm_handler()\n");
-
-    LOG("parameters: %s\n", terminal->csi_parameters);
+    DEBUG_CSI_HANDLER("csi_sm_handler");
     // int len;
     // int* parameters = NULL;
 
@@ -973,9 +1063,8 @@ void csi_sm_handler(Terminal* terminal){
 }
 
 void csi_rm_handler(Terminal* terminal){
-    LOG("csi_rm_handler()\n");
+    DEBUG_CSI_HANDLER("csi_rm_handler");
     
-    LOG("parameters: %s\n", terminal->csi_parameters);
     // int len;
     // int* parameters = NULL;
 
@@ -992,6 +1081,8 @@ void csi_rm_handler(Terminal* terminal){
 }
 
 void csi_sgr_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_sgr_handler");
+
     int ret;
     int i;
     int len = 0;
@@ -1030,6 +1121,8 @@ fail:
 }
 
 void csi_dsr_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_dsr_handler");
+
     int len;
     int* parameters = NULL;
 
@@ -1059,24 +1152,51 @@ fail:
 }
 
 void csi_decll_handler(Terminal* terminal){
-    LOG("csi_decll_handler()\n");
+    DEBUG_CSI_HANDLER("csi_decll_handler");
 }
 
 void csi_decstbm_handler(Terminal* terminal){
-    LOG("csi_decstbm_handler()\n");
-    LOG("parameters: %s\n", terminal->csi_parameters);
+    DEBUG_CSI_HANDLER("csi_decstbm_handler");
+
+    int len = 0;
+    int* parameters = NULL;
+
+    int top;
+    int bottom;
+
+    parameters = csi_get_parameters(terminal, &len);
+
+    // defaults
+    if (parameters == NULL){    
+        top = 0;
+        bottom = terminal->rows_number - 1;
+    }else{
+        top = parameters[0] ? (parameters[0] - 1) : 0;
+        bottom = parameters[1] ? (parameters[1] - 1) : (terminal->rows_number - 1);
+    }
+
+    ASSERT(BETWEEN(top, 0, bottom),
+           "decstbm -> parameters not in range.\n");
+    ASSERT(BETWEEN(bottom, top, terminal->rows_number - 1),
+           "decstbm -> parameters not in range.\n");
+
+    terminal->top = top;
+    terminal->bottom = bottom;
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_save_cursor_handler(Terminal* terminal){
-    LOG("csi_save_cursor_handler()\n");
+    DEBUG_CSI_HANDLER("csi_save_cursor_handler");
 }
 
 void csi_restore_cursor_handler(Terminal* terminal){
-    LOG("csi_restore_cursor_handler()\n");
+    DEBUG_CSI_HANDLER("csi_restore_cursor_handler");
 }
 
 void csi_hpa_handler(Terminal* terminal){
-    LOG("csi_hpa_handler()\n");
+    DEBUG_CSI_HANDLER("csi_hpa_handler");
 }
 
 void (*csi_code_handlers[200])(Terminal* terminal) = {

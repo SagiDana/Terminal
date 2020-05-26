@@ -27,6 +27,9 @@ typedef struct{
 
     int start_line_index;
 
+    int top;
+    int bottom;
+
     unsigned int default_background_color;
     unsigned int default_foreground_color;
 
