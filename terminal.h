@@ -61,8 +61,11 @@ int terminal_resize(Terminal* terminal,
 
 int terminal_forward_cursor(Terminal* terminal);
 int terminal_new_line(Terminal* terminal);
+
+int terminal_empty_element(Terminal* terminal, int x, int y);
 int terminal_empty_line(Terminal* terminal, int y);
 int terminal_empty(Terminal* terminal);
+
 int terminal_scrolldown(Terminal* terminal, int y, int lines_number);
 int terminal_move_line(Terminal* terminal, int src_y, int dst_y);
 
@@ -71,6 +74,5 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code);
 int terminal_push(Terminal* terminal, char* buf, int len);
 TElement* terminal_element(Terminal* terminal, int x, int y);
 
-int terminal_delete_element(Terminal* terminal, int x, int y);
 
 #endif

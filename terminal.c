@@ -33,28 +33,34 @@
 // debug escaped handlers macros.
 // ------------------------------------------------------------
 
-#define DEBUG_ESC
-#define DEBUG_CSI
-#define DEBUG_SGR
+#define ESC_DEBUG
+#define CSI_DEBUG
+#define SGR_DEBUG
 
-#ifdef DEBUG_ESC
+// #undef ESC_DEBUG
+// #undef CSI_DEBUG
+// #undef SGR_DEBUG
+
+#ifdef ESC_DEBUG
 #define DEBUG_ESC_HANDLER(handler) do {                                 \
     LOG("DEBUG_ESC: handler: %s.\n", handler);                          \
 }while(0)
 #else
-#define DEBUG_ESC_HANDLER(handler) ()
+#define DEBUG_ESC_HANDLER(handler) do{                                  \
+}while(0)
 #endif
 
-#ifdef DEBUG_CSI
+#ifdef CSI_DEBUG
 #define DEBUG_CSI_HANDLER(handler) do {                                 \
     LOG("DEBUG_CSI: handler: %s.\n", handler);                          \
     LOG("DEBUG_CSI: parameters:\"%s\".\n", terminal->csi_parameters);   \
 }while(0)
 #else
-#define DEBUG_CSI_HANDLER(handler) ()
+#define DEBUG_CSI_HANDLER(handler) do{                                  \
+}while(0)
 #endif
 
-#ifdef DEBUG_SGR
+#ifdef SGR_DEBUG
 #define DEBUG_SGR_HANDLER(handler) do {                                 \
     LOG("DEBUG_SGR: handler: %s.\n", handler);                          \
     LOG("DEBUG_SGR: parameters:\n");                                    \
@@ -63,7 +69,8 @@
     }                                                                   \
 }while(0)
 #else
-#define DEBUG_SGR_HANDLER(handler) ()
+#define DEBUG_SGR_HANDLER(handler) do{                                  \
+}while(0)
 #endif
 
 // ------------------------------------------------------------
@@ -184,6 +191,15 @@ int terminal_forward_cursor(Terminal* terminal){
     
 fail:
     return -1;
+}
+
+int terminal_empty_element(Terminal* terminal, int x, int y){
+    TElement* element = NULL;
+
+    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
+
+    memset(element, 0, sizeof(TElement));
+    return 0;
 }
 
 int terminal_empty_line(Terminal* terminal, int y){
@@ -895,15 +911,15 @@ void csi_ed_handler(Terminal* terminal){
     parameters = csi_get_parameters(terminal, &len);
     
     // default: from cursor to end of display
-    if (parameters == NULL){ // default.
+    if ((parameters == NULL) || (parameters[0] == 0)){ // default.
         int i;
         for (i = terminal->cursor.x; i < terminal->cols_number; i++){
-            ret = terminal_delete_element(  terminal, 
+            ret = terminal_empty_element(  terminal, 
                                             i, 
                                             terminal->cursor.y);
             ASSERT(ret == 0, "failed to delete element.\n");
         }
-        for (i = terminal->cursor.y; i < terminal->rows_number; i++){
+        for (i = terminal->cursor.y + 1; i < terminal->rows_number; i++){
             ret = terminal_empty_line(terminal, i);
             ASSERT(ret == 0, "failed to empty line.\n");
         }
@@ -919,7 +935,7 @@ void csi_ed_handler(Terminal* terminal){
             ASSERT(ret == 0, "failed to empty line.\n");
         }
         for (i = 0; i <= terminal->cursor.x; i++){
-            ret = terminal_delete_element(  terminal, 
+            ret = terminal_empty_element(  terminal, 
                                             i, 
                                             terminal->cursor.y);
             ASSERT(ret == 0, "failed to delete element.\n");
@@ -949,10 +965,10 @@ void csi_el_handler(Terminal* terminal){
     parameters = csi_get_parameters(terminal, &len);
 
     // default: from cursor to end of line 
-    if (parameters == NULL){ // default.
+    if ((parameters == NULL) || (parameters[0] == 0)){ // default.
         int i;
         for (i = terminal->cursor.x; i < terminal->cols_number; i++){
-            ret = terminal_delete_element(  terminal, 
+            ret = terminal_empty_element(  terminal, 
                                             i, 
                                             terminal->cursor.y);
             ASSERT(ret == 0, "failed to delete element.\n");
@@ -965,7 +981,7 @@ void csi_el_handler(Terminal* terminal){
     if (parameters[0] == 1){ // from start to cursor
         int i;
         for (i = 0; i <= terminal->cursor.x; i++){
-            ret = terminal_delete_element(  terminal, 
+            ret = terminal_empty_element(  terminal, 
                                             i, 
                                             terminal->cursor.y);
             ASSERT(ret == 0, "failed to delete element.\n");
@@ -1439,12 +1455,4 @@ TElement* terminal_element(Terminal* terminal, int x, int y){
     return element;
 }
 
-int terminal_delete_element(Terminal* terminal, int x, int y){
-    TElement* element = NULL;
-
-    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
-
-    memset(element, 0, sizeof(TElement));
-    return 0;
-}
 
