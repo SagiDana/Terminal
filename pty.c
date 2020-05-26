@@ -9,6 +9,8 @@
 #include <sys/select.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 
 // ------------------------------------------------------------------------
@@ -59,6 +61,23 @@ TPty* pty_create(char** args){
 		close(master);
 
         // TODO: setting environment vairables.
+        const struct passwd *pw;
+
+        pw = getpwuid(getuid());
+        if (pw == NULL){
+            LOG("failed on getpwuid().\n");
+            exit(0);
+        }
+
+        unsetenv("COLUMNS");
+        unsetenv("LINES");
+        unsetenv("TERMCAP");
+
+        setenv("LOGNAME", pw->pw_name, 1);
+        setenv("USER", pw->pw_name, 1);
+        setenv("SHELL", args[0], 1);
+        setenv("HOME", pw->pw_dir, 1);
+        // setenv("TERM", "terminal", 1);
 
         // setting signal handlers to defaults.
         signal(SIGCHLD, SIG_DFL);

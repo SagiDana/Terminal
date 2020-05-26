@@ -12,7 +12,7 @@ INCS = -I${X11INC} \
 CC = cc
 
 LDFLAGS = ${LIBS}
-CFLAGS = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS}
+CFLAGS = -D_DEFAULT_SOURCE -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS}
 
 SRC = ui.c terminal.c pty.c common.c list.c element.c font.c utf8.c color.c
 
