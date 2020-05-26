@@ -13,9 +13,16 @@
 
 // modes definitions
 #define ESC_MODE        (1 << 0)
-#define CSI_MODE        (1 << 1)
-#define OSC_MODE        (1 << 2)
-#define PRIVATE_MODE    (1 << 3)
+#define LNM_MODE        (1 << 1) // linefeed new line mode.
+#define SET_G0_MODE     (1 << 2) // define G0 charset.
+#define SET_G1_MODE     (1 << 3) // define G1 charset.
+#define CSI_MODE        (1 << 4)
+#define OSC_MODE        (1 << 5)
+// this mode is currently used by csi_get_parameters() to let us know 
+// the '?' character was prefixed the parameters what indicates use we 
+// in private mode.
+#define PRIVATE_MODE    (1 << 6)
+#define CSI_DOL_MODE    (1 << 7)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
@@ -110,6 +117,8 @@ Terminal* terminal_create(  TPty* pty,
 
     terminal->foreground_color = terminal->default_foreground_color;
     terminal->background_color = terminal->default_background_color;
+
+    terminal->osc_buffer_index = 0;
 
     terminal->csi_parameters_index = 0;
     terminal->attributes = 0;
@@ -234,6 +243,7 @@ int terminal_new_line(Terminal* terminal){
         ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
     }
 
+    // ret = terminal_scrolldown(terminal, terminal->cursor.y, 1);
     ret = terminal_empty_line(terminal, terminal->cursor.y);
     ASSERT(ret == 0, "failed to empty new line.\n");
 
@@ -451,10 +461,14 @@ void esc_select_charset_handler(Terminal* terminal){
 
 void esc_define_g0_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g0_charset_handler");
+
+    SET_MODE(SET_G0_MODE);
 }
 
 void esc_define_g1_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g1_charset_handler");
+
+    SET_MODE(SET_G1_MODE);
 }
 
 void esc_decpnm_handler(Terminal* terminal){
@@ -545,6 +559,12 @@ int* csi_get_parameters(Terminal* terminal, int* len){
     // reset terminal's csi_parameters (they are not valid any more).
     memset(terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
     terminal->csi_parameters_index = 0;
+
+    if (*len == 0){
+        SET_NO_MODE(PRIVATE_MODE);
+        free(parameters);
+        parameters = NULL;
+    }
 
     return parameters;
 }
@@ -1063,39 +1083,114 @@ void csi_tbc_handler(Terminal* terminal){
 
 void csi_sm_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_sm_handler");
-    // int len;
-    // int* parameters = NULL;
 
-    
-    // parameters = csi_get_parameters(terminal, &len);
-    // ASSERT(parameters, "failed to get csi parameters.\n");
+    int len;
+    int* parameters = NULL;
 
-    // csi_log_parameters(parameters, len);
+    parameters = csi_get_parameters(terminal, &len);
+    if (parameters == NULL || parameters[0] == 0){
+        // ignored
+        return;
+    }
+
+    ASSERT((len == 1), "number of parameters is not 1?\n");
+
+    if (IS_MODE(PRIVATE_MODE)){
+        if (parameters[0] == 1){
+            LOG("wish to set DECCKM\n");
+        }
+        if (parameters[0] == 2){
+            LOG("wish to set DECANM\n");
+        }
+        if (parameters[0] == 3){
+            LOG("wish to set DECCOLM\n");
+        }
+        if (parameters[0] == 4){
+            LOG("wish to set DECSCLM\n");
+        }
+        if (parameters[0] == 5){
+            LOG("wish to set DECSCNM\n");
+        }
+        if (parameters[0] == 6){
+            LOG("wish to set DECOM\n");
+        }
+        if (parameters[0] == 7){
+            LOG("wish to set DECAWM\n");
+        }
+        if (parameters[0] == 8){
+            LOG("wish to set DECARM\n");
+        }
+        if (parameters[0] == 9){
+            LOG("wish to set DECINLM\n");
+        }
+        // any other is ignored.
 
 
-    // SET_NO_MODE(PRIVATE_MODE);
+        SET_NO_MODE(PRIVATE_MODE);
+    }else{
+        if (parameters[0] == 20){
+            SET_MODE(LNM_MODE);
+        }
+    }
 
-    // csi_free_parameters(parameters);
-// fail:
-    // return;
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_rm_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_rm_handler");
-    
-    // int len;
-    // int* parameters = NULL;
 
-    // parameters = csi_get_parameters(terminal, &len);
-    // ASSERT(parameters, "failed to get csi parameters.\n");
+    int len;
+    int* parameters = NULL;
 
-    // csi_log_parameters(parameters, len);
+    parameters = csi_get_parameters(terminal, &len);
+    if (parameters == NULL || parameters[0] == 0){
+        // ignored
+        return;
+    }
 
-    // SET_NO_MODE(PRIVATE_MODE);
+    ASSERT((len == 1), "number of parameters is not 1?\n");
 
-    // csi_free_parameters(parameters);
-// fail:
-    // return;
+    if (IS_MODE(PRIVATE_MODE)){
+        if (parameters[0] == 1){
+            LOG("wish to unset DECCKM\n");
+        }
+        if (parameters[0] == 2){
+            LOG("wish to unset DECANM\n");
+        }
+        if (parameters[0] == 3){
+            LOG("wish to unset DECCOLM\n");
+        }
+        if (parameters[0] == 4){
+            LOG("wish to unset DECSCLM\n");
+        }
+        if (parameters[0] == 5){
+            LOG("wish to unset DECSCNM\n");
+        }
+        if (parameters[0] == 6){
+            LOG("wish to unset DECOM\n");
+        }
+        if (parameters[0] == 7){
+            LOG("wish to unset DECAWM\n");
+        }
+        if (parameters[0] == 8){
+            LOG("wish to unset DECARM\n");
+        }
+        if (parameters[0] == 9){
+            LOG("wish to unset DECINLM\n");
+        }
+        // any other is ignored.
+
+
+        SET_NO_MODE(PRIVATE_MODE);
+    }else{
+        if (parameters[0] == 20){
+            SET_NO_MODE(LNM_MODE);
+        }
+    }
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_sgr_handler(Terminal* terminal){
@@ -1217,7 +1312,15 @@ void csi_hpa_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_hpa_handler");
 }
 
+void csi_dol_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_dol_handler");
+
+    SET_MODE(CSI_DOL_MODE);
+}
+
 void (*csi_code_handlers[200])(Terminal* terminal) = {
+    ['$'] = csi_dol_handler,
+
     ['@'] = csi_ich_handler,
     ['A'] = csi_cuu_handler,
     ['B'] = csi_cud_handler,
@@ -1252,29 +1355,78 @@ void (*csi_code_handlers[200])(Terminal* terminal) = {
 
 // ----------------------------------------------------------------------
 
+int handle_csi_dol_codes(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(CSI_DOL_MODE)){
+        return FALSE;
+    }
+
+    if (control_code == 'p'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+    if (control_code == 'v'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+    if (control_code == 'z'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+    if (control_code == 'x'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+    if (control_code == 'r'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+    if (control_code == 't'){
+        LOG("csi_dol -> handle control_code: %d\n", control_code);
+        SET_NO_MODE(CSI_DOL_MODE);
+        return TRUE;
+    }
+
+    LOG("csi_dol -> failed to handle control_code: %d\n", control_code);
+    return TRUE;
+}
+
 int handle_osc_codes(Terminal* terminal, unsigned char control_code){
     if (!IS_MODE(OSC_MODE)){
         return FALSE;
     }
 
-	/* 
-     * FROM ST:
-     * 
-	 * STR sequence must be checked before anything else
-	 * because it uses all following characters until it
-	 * receives a ESC, a SUB, a ST or any other C1 control
-	 * character.
-	 */
-
     // did end?
-    if ((control_code == '\a') || 
-            (control_code == 0x18) || 
-            (control_code == 0x1A) || 
-            (control_code == 0x1B) ||
-            (BETWEEN(control_code, 0x80, 0x9F))) {
+    if ((control_code == 0x7) || 
+        (control_code == '\\')){
+
+        LOG("osc -> string: \"%s\".\n", terminal->osc_buffer);
+
+        // TODO: handle osc commands
+
         SET_NO_MODE(OSC_MODE);
+        SET_NO_MODE(ESC_MODE);
+
+        memset(terminal->osc_buffer, 0, sizeof(terminal->osc_buffer));
+        terminal->osc_buffer_index = 0;
+
+        return TRUE;
     }
 
+    ASSERT((terminal->osc_buffer_index + 1 < OSC_MAX_CHARS), 
+            "osc -> number of string exceeded limit.\n");
+
+    terminal->osc_buffer[terminal->osc_buffer_index] = control_code;
+    terminal->osc_buffer_index++;
+
+    return TRUE;
+
+fail:
+    LOG("osc handler failed..?\n");
     return TRUE;
 }
 
@@ -1284,8 +1436,7 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
     }
 
     // handle parameters.
-    if (BETWEEN(control_code, 0x30, 0x3F) ||
-        BETWEEN(control_code, 0x20, 0x2F)){
+    if (BETWEEN(control_code, 0x30, 0x3F)){
 
         // did we reached the maximum number of parameters
         if (terminal->csi_parameters_index == CSI_MAX_PARAMETERS_CHARS){
@@ -1305,11 +1456,13 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
         return TRUE;
     }
 
-    // TODO:
-    // if (BETWEEN(control_code, 0x20, 0x2F)){
-    // }
+    // NOTE: these characters will only come after numbers.
+    // 0x20 <= control_code <= 0x2F
+    // intermediate characters of csi.
 
-    if (BETWEEN(control_code, 0x40, 0x7E)){
+    if ((BETWEEN(control_code, 0x40, 0x7E)) ||
+        (BETWEEN(control_code, 0x20, 0x2F))){
+
         if (csi_code_handlers[control_code]){
             (csi_code_handlers[control_code])(terminal);
         }else{
@@ -1354,8 +1507,66 @@ int handle_esc_codes(Terminal* terminal, unsigned char control_code){
     return TRUE;
 }
 
+int handle_set_g0_charset(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(SET_G0_MODE)){
+        return FALSE;
+    }
+
+    if (control_code == 'B'){
+        // select default.
+    }
+    if (control_code == '0'){
+    }
+    if (control_code == 'U'){
+    }
+    if (control_code == 'K'){
+    }
+
+    SET_NO_MODE(SET_G0_MODE);
+    return TRUE;
+}
+
+int handle_set_g1_charset(Terminal* terminal, unsigned char control_code){
+    if (!IS_MODE(SET_G1_MODE)){
+        return FALSE;
+    }
+
+    if (control_code == 'B'){
+    }
+    if (control_code == '0'){
+    }
+    if (control_code == 'U'){
+    }
+    if (control_code == 'K'){
+    }
+
+    SET_NO_MODE(SET_G1_MODE);
+    return TRUE;
+}
+
 int handle_control_codes(Terminal* terminal, unsigned char control_code){
+    
+	/* 
+     * FROM ST:
+     * 
+	 * STR sequence must be checked before anything else
+	 * because it uses all following characters until it
+	 * receives a ESC, a SUB, a ST or any other C1 control
+	 * character.
+	 */
     if (handle_osc_codes(terminal, control_code)){
+        return TRUE;
+    }
+
+    if (handle_set_g0_charset(terminal, control_code)){
+        return TRUE;
+    }
+
+    if (handle_set_g1_charset(terminal, control_code)){
+        return TRUE;
+    }
+
+    if (handle_csi_dol_codes(terminal, control_code)){
         return TRUE;
     }
 
