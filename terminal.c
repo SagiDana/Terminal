@@ -177,6 +177,10 @@ int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
 
     terminal->cols_number = cols_number;
     terminal->rows_number = rows_number;
+
+    terminal->top = 0;
+    terminal->bottom = rows_number - 1;
+
     terminal->cursor.x = 0;
     terminal->cursor.y = 0;
     terminal->start_line_index = 0;
@@ -260,7 +264,6 @@ int terminal_new_line(Terminal* terminal){
         ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
     }
 
-    // ret = terminal_scrolldown(terminal, terminal->cursor.y, 1);
     ret = terminal_empty_line(terminal, terminal->cursor.y);
     ASSERT(ret == 0, "failed to empty new line.\n");
 
@@ -287,15 +290,62 @@ fail:
     return -1;
 }
 
-int terminal_scrolldown(Terminal* terminal, int y, int lines_number){
+int terminal_scrollup(Terminal* terminal, int top_y, int bottom_y, int lines_number){
     int ret;
     int i;
 
     ASSERT((lines_number > 0), "lines number to scroll invalid.\n");
-    ASSERT((BETWEEN(y, terminal->top, terminal->bottom)),
+    ASSERT((BETWEEN(top_y, 0, terminal->rows_number - 1)),
+           "starting scroll position is not in range.\n");
+    ASSERT((BETWEEN(bottom_y, top_y, terminal->rows_number - 1)),
            "starting scroll position is not in range.\n");
 
-    int left_lines = (terminal->bottom) - y - lines_number;
+    int left_lines = bottom_y - top_y - lines_number;
+
+    // we might not care about it 
+    // and can just empty all lines
+    ASSERT((left_lines >= 0), "too much to scroll.\n");
+
+    LOG("top_y: %d, bottom_y: %d, lines_number: %d, left_lines: %d\n", 
+            top_y,
+            bottom_y,
+            lines_number,
+            left_lines);
+
+    // the order is important here so we dont 
+    // override the lines we need to copy.
+    // so we move the lines from the end to the start.
+    for (i = 0; i < left_lines; i++){
+        ret = terminal_move_line(   terminal,
+                                    (bottom_y - left_lines) + i,
+                                    top_y + i);
+        ASSERT(ret == 0, "failed to move line.\n");
+    }
+
+    int empty_lines = bottom_y - top_y + left_lines;
+
+    for (i = 0; i < empty_lines; i++){
+        ret = terminal_empty_line(terminal, bottom_y - i);
+        ASSERT(ret == 0, "failed to empty line.\n");
+    }
+
+    return 0;
+fail:
+    return -1;
+}
+
+int terminal_scrolldown(Terminal* terminal, int top_y, int bottom_y, int lines_number){
+    int ret;
+    int i;
+
+    ASSERT((lines_number > 0), "lines number to scroll invalid.\n");
+
+    ASSERT((BETWEEN(top_y, 0, terminal->rows_number - 1)),
+           "starting scroll position is not in range.\n");
+    ASSERT((BETWEEN(bottom_y, top_y, terminal->rows_number - 1)),
+           "starting scroll position is not in range.\n");
+
+    int left_lines = bottom_y - top_y - lines_number;
 
     // we might not care about it 
     // and can just empty all lines
@@ -306,15 +356,15 @@ int terminal_scrolldown(Terminal* terminal, int y, int lines_number){
     // so we move the lines from the end to the start.
     for (i = 0; i < left_lines; i++){
         ret = terminal_move_line(   terminal,
-                                    (y + left_lines) - i,
-                                    terminal->bottom - i);
+                                    (top_y + left_lines) - i,
+                                    bottom_y - i);
         ASSERT(ret == 0, "failed to move line.\n");
     }
 
-    int empty_lines = terminal->bottom - y - left_lines;
+    int empty_lines = bottom_y - top_y - left_lines;
 
     for (i = 0; i < empty_lines; i++){
-        ret = terminal_empty_line(terminal, y + i);
+        ret = terminal_empty_line(terminal, top_y + i);
         ASSERT(ret == 0, "failed to empty line.\n");
     }
 
@@ -1044,7 +1094,6 @@ void csi_el_handler(Terminal* terminal){
 
 fail:
     csi_free_parameters(parameters);
-    return;
 }
 
 void csi_il_handler(Terminal* terminal){
@@ -1053,22 +1102,22 @@ void csi_il_handler(Terminal* terminal){
     int ret;
     int len = 0;
     int* parameters = NULL;
-    int blank_lines_number;
+    int lines_number;
 
     parameters = csi_get_parameters(terminal, &len);
-
-    if (parameters == NULL){
-        blank_lines_number = 1;
+    if (parameters == NULL || parameters[0] == 0){
+        lines_number = 1;
+    }else{
+        ASSERT((len == 1), "csi_il -> number of parameters is: %d\n", len);
+        lines_number = parameters[0];
     }
 
     ASSERT((len <= 1), "too many parameters.\n");
 
-    // ASSERT( BETWEEN(blank_lines_number, terminal->cursor.y, terminal->rows_number), 
-            // "blank lines is more than screen has.\n");
-
     ret = terminal_scrolldown(  terminal, 
                                 terminal->cursor.y, 
-                                blank_lines_number);
+                                terminal->bottom,
+                                lines_number);
     ASSERT(ret == 0, "failed to scroll down.\n");
 
 fail:
@@ -1077,6 +1126,30 @@ fail:
 
 void csi_dl_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_dl_handler");
+
+    int ret;
+    int len = 0;
+    int* parameters = NULL;
+    int lines_number;
+
+    parameters = csi_get_parameters(terminal, &len);
+    if (parameters == NULL || parameters[0] == 0){
+        lines_number = 1;
+    }else{
+        ASSERT((len == 1), "csi_il -> number of parameters is: %d\n", len);
+        lines_number = parameters[0];
+    }
+
+    ASSERT((len <= 1), "too many parameters.\n");
+
+    ret = terminal_scrollup(    terminal, 
+                                terminal->cursor.y, 
+                                terminal->bottom,
+                                lines_number);
+    ASSERT(ret == 0, "failed to scroll up.\n");
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_dch_handler(Terminal* terminal){
@@ -1686,6 +1759,7 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
 
     // can be control character only if 1 byte.
     if (BETWEEN(character_code, 0, 0xFF)){
+        // LOG("cursor position: x: %d, y: %d\n", terminal->cursor.x, terminal->cursor.y);
         unsigned char control_code = character_code & 0xFF;
         ret = handle_control_codes(terminal, control_code);
         if (ret == TRUE){
