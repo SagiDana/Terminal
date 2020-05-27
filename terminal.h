@@ -39,6 +39,7 @@ typedef struct{
     // ---- parameters to keep state of control codes! ----
 
     unsigned int mode;
+    unsigned int vt_mode;
     unsigned int attributes;
     unsigned int background_color;
     unsigned int foreground_color;

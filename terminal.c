@@ -11,18 +11,35 @@
 #define REAL_Y(y) ((terminal->start_line_index + y) % terminal->rows_number)
 #define ELEMENT (terminal->screen[(REAL_Y(terminal->cursor.y) * terminal->cols_number) + terminal->cursor.x])
 
-// modes definitions
+// VT100 modes
+#define VT_LMN_MODE         (1 << 0) // New line mode
+#define VT_DECCKM_MODE      (1 << 1) // Cursor key to application
+#define VT_DECANM_MODE      (1 << 2) // ANSI
+#define VT_DECCOLM_MODE     (1 << 3) // Number of columns to 132
+#define VT_DECSCLM_MODE     (1 << 4) // Smooth scrolling
+#define VT_DECSCNM_MODE     (1 << 5) // Reverse video
+#define VT_DECOM_MODE       (1 << 6) // Origin to relative
+#define VT_DECAWM_MODE      (1 << 7) // Auto-wrap mode
+#define VT_DECARM_MODE      (1 << 8) // Auto-repeate mode
+#define VT_DECINLM_MODE     (1 << 9) // Interlacing mode
+#define VT_DECKPAM_MODE     (1 << 10) // alternative/numeric keypad mode
+
+// mode operations
+#define IS_VT_MODE(x)       (terminal->vt_mode & x)
+#define SET_VT_MODE(x)      (terminal->vt_mode |= x)
+#define SET_NO_VT_MODE(x)   (terminal->vt_mode &= (~x))
+
+// terminal state machine modes definitions
 #define ESC_MODE        (1 << 0)
-#define LNM_MODE        (1 << 1) // linefeed new line mode.
-#define SET_G0_MODE     (1 << 2) // define G0 charset.
-#define SET_G1_MODE     (1 << 3) // define G1 charset.
-#define CSI_MODE        (1 << 4)
-#define OSC_MODE        (1 << 5)
+#define G0_MODE         (1 << 1) // define G0 charset.
+#define G1_MODE         (1 << 2) // define G1 charset.
+#define CSI_MODE        (1 << 3)
+#define OSC_MODE        (1 << 4)
 // this mode is currently used by csi_get_parameters() to let us know 
 // the '?' character was prefixed the parameters what indicates use we 
 // in private mode.
-#define PRIVATE_MODE    (1 << 6)
-#define CSI_DOL_MODE    (1 << 7)
+#define PRIVATE_MODE    (1 << 5)
+#define CSI_DOL_MODE    (1 << 6)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
@@ -325,7 +342,6 @@ void bs_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("bs_handler");
 
     if (terminal->cursor.x > 0){
-        ELEMENT.character_code = 0;
         terminal->cursor.x--;
     }
 }
@@ -429,10 +445,14 @@ void esc_ris_handler(Terminal* terminal){
 
 void esc_ind_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_ind_handler");
+
+    // TODO: scroll window one line up
 }
 
 void esc_nel_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_nel_handler");
+    
+    // TODO: moe to next line
 }
 
 void esc_hts_handler(Terminal* terminal){
@@ -441,6 +461,8 @@ void esc_hts_handler(Terminal* terminal){
 
 void esc_ri_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_ri_handler");
+
+    // TODO: scroll window one line down
 }
 
 void esc_decid_handler(Terminal* terminal){
@@ -462,21 +484,25 @@ void esc_select_charset_handler(Terminal* terminal){
 void esc_define_g0_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g0_charset_handler");
 
-    SET_MODE(SET_G0_MODE);
+    SET_MODE(G0_MODE);
 }
 
 void esc_define_g1_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g1_charset_handler");
 
-    SET_MODE(SET_G1_MODE);
+    SET_MODE(G1_MODE);
 }
 
 void esc_decpnm_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_decpnm_handler");
+
+    SET_NO_VT_MODE(VT_DECKPAM_MODE);
 }
 
 void esc_decpam_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_decpam_handler");
+
+    SET_VT_MODE(VT_DECKPAM_MODE);
 }
 
 void esc_osc_handler(Terminal* terminal){
@@ -927,6 +953,8 @@ fail:
 void csi_ed_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_ed_handler");
 
+    // TODO: make it more readable.
+
     int ret;
     int len = 0;
     int* parameters = NULL;
@@ -1130,31 +1158,31 @@ void csi_sm_handler(Terminal* terminal){
 
     if (IS_MODE(PRIVATE_MODE)){
         if (parameters[0] == 1){
-            LOG("wish to set DECCKM\n");
+            SET_VT_MODE(VT_DECCKM_MODE);
         }
         if (parameters[0] == 2){
-            LOG("wish to set DECANM\n");
+            SET_VT_MODE(VT_DECANM_MODE);
         }
         if (parameters[0] == 3){
-            LOG("wish to set DECCOLM\n");
+            SET_VT_MODE(VT_DECCOLM_MODE);
         }
         if (parameters[0] == 4){
-            LOG("wish to set DECSCLM\n");
+            SET_VT_MODE(VT_DECSCLM_MODE);
         }
         if (parameters[0] == 5){
-            LOG("wish to set DECSCNM\n");
+            SET_VT_MODE(VT_DECSCNM_MODE);
         }
         if (parameters[0] == 6){
-            LOG("wish to set DECOM\n");
+            SET_VT_MODE(VT_DECOM_MODE);
         }
         if (parameters[0] == 7){
-            LOG("wish to set DECAWM\n");
+            SET_VT_MODE(VT_DECAWM_MODE);
         }
         if (parameters[0] == 8){
-            LOG("wish to set DECARM\n");
+            SET_VT_MODE(VT_DECARM_MODE);
         }
         if (parameters[0] == 9){
-            LOG("wish to set DECINLM\n");
+            SET_VT_MODE(VT_DECINLM_MODE);
         }
         // any other is ignored.
 
@@ -1162,7 +1190,7 @@ void csi_sm_handler(Terminal* terminal){
         SET_NO_MODE(PRIVATE_MODE);
     }else{
         if (parameters[0] == 20){
-            SET_MODE(LNM_MODE);
+            SET_VT_MODE(VT_LMN_MODE);
         }
     }
 
@@ -1186,31 +1214,31 @@ void csi_rm_handler(Terminal* terminal){
 
     if (IS_MODE(PRIVATE_MODE)){
         if (parameters[0] == 1){
-            LOG("wish to unset DECCKM\n");
+            SET_NO_VT_MODE(VT_DECCKM_MODE);
         }
         if (parameters[0] == 2){
-            LOG("wish to unset DECANM\n");
+            SET_NO_VT_MODE(VT_DECANM_MODE);
         }
         if (parameters[0] == 3){
-            LOG("wish to unset DECCOLM\n");
+            SET_NO_VT_MODE(VT_DECCOLM_MODE);
         }
         if (parameters[0] == 4){
-            LOG("wish to unset DECSCLM\n");
+            SET_NO_VT_MODE(VT_DECSCLM_MODE);
         }
         if (parameters[0] == 5){
-            LOG("wish to unset DECSCNM\n");
+            SET_NO_VT_MODE(VT_DECSCNM_MODE);
         }
         if (parameters[0] == 6){
-            LOG("wish to unset DECOM\n");
+            SET_NO_VT_MODE(VT_DECOM_MODE);
         }
         if (parameters[0] == 7){
-            LOG("wish to unset DECAWM\n");
+            SET_NO_VT_MODE(VT_DECAWM_MODE);
         }
         if (parameters[0] == 8){
-            LOG("wish to unset DECARM\n");
+            SET_NO_VT_MODE(VT_DECARM_MODE);
         }
         if (parameters[0] == 9){
-            LOG("wish to unset DECINLM\n");
+            SET_NO_VT_MODE(VT_DECINLM_MODE);
         }
         // any other is ignored.
 
@@ -1218,7 +1246,7 @@ void csi_rm_handler(Terminal* terminal){
         SET_NO_MODE(PRIVATE_MODE);
     }else{
         if (parameters[0] == 20){
-            SET_NO_MODE(LNM_MODE);
+            SET_NO_VT_MODE(VT_LMN_MODE);
         }
     }
 
@@ -1547,39 +1575,60 @@ int handle_esc_codes(Terminal* terminal, unsigned char control_code){
 }
 
 int handle_set_g0_charset(Terminal* terminal, unsigned char control_code){
-    if (!IS_MODE(SET_G0_MODE)){
+    if (!IS_MODE(G0_MODE)){
         return FALSE;
     }
 
+    if (control_code == 'A'){
+        // Set United Kingdom G0 charset
+    }
     if (control_code == 'B'){
-        // select default.
+        // Set United State G0 charset
     }
     if (control_code == '0'){
+        // Set G0 special chars. & line set
+    }
+    if (control_code == '1'){
+        // Set G0 alternate character ROM
+    }
+    if (control_code == '2'){
+        // Set G0 alternate character ROM & spec & graphic
     }
     if (control_code == 'U'){
     }
     if (control_code == 'K'){
     }
 
-    SET_NO_MODE(SET_G0_MODE);
+    SET_NO_MODE(G0_MODE);
     return TRUE;
 }
 
 int handle_set_g1_charset(Terminal* terminal, unsigned char control_code){
-    if (!IS_MODE(SET_G1_MODE)){
+    if (!IS_MODE(G1_MODE)){
         return FALSE;
     }
 
+    if (control_code == 'A'){
+        // Set United Kingdom G1 charset
+    }
     if (control_code == 'B'){
+        // Set United State G1 charset
     }
     if (control_code == '0'){
+        // Set G1 special chars. & line set
+    }
+    if (control_code == '1'){
+        // Set G1 alternate character ROM
+    }
+    if (control_code == '2'){
+        // Set G1 alternate character ROM & spec & graphic
     }
     if (control_code == 'U'){
     }
     if (control_code == 'K'){
     }
 
-    SET_NO_MODE(SET_G1_MODE);
+    SET_NO_MODE(G1_MODE);
     return TRUE;
 }
 

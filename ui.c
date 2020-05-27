@@ -19,7 +19,8 @@ Key* get_key_by_event(Display* display, XKeyEvent* event){
         if (event->keycode != XKeysymToKeycode(display, terminal_keys[i].keysym)){
             continue;
         }
-        if (ONLY_MODIFIERS(event->state) != ONLY_MODIFIERS(terminal_keys[i].mod)){
+        if ((terminal_keys[i].mod != XK_ANY_MOD) &&
+            (ONLY_MODIFIERS(event->state) != ONLY_MODIFIERS(terminal_keys[i].mod))){
             continue;
         }
 
