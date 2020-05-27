@@ -322,7 +322,7 @@ int terminal_scrollup(Terminal* terminal, int top_y, int bottom_y, int lines_num
         ASSERT(ret == 0, "failed to move line.\n");
     }
 
-    int empty_lines = bottom_y - top_y + left_lines;
+    int empty_lines = bottom_y - top_y - left_lines;
 
     for (i = 0; i < empty_lines; i++){
         ret = terminal_empty_line(terminal, bottom_y - i);
