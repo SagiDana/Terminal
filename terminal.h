@@ -26,6 +26,8 @@ typedef struct{
     TElement* screen;
     TCursor cursor;
 
+    TCursor saved_cursor;
+
     int start_line_index;
 
     int top;

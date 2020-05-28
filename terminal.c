@@ -208,20 +208,11 @@ int terminal_rotate_lines(Terminal* terminal){
 }
 
 int terminal_forward_cursor(Terminal* terminal){
-    int ret;
-
     if (terminal->cursor.x + 1 < terminal->cols_number){
         terminal->cursor.x++;
         return 0;
     }
 
-    ret = terminal_new_line(terminal);
-    ASSERT(ret == 0, "failed to new line terminal.\n");
-    terminal->cursor.x = 0;
-
-    return 0;
-    
-fail:
     return -1;
 }
 
@@ -431,6 +422,10 @@ void lf_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("lf_handler");
 
     terminal_new_line(terminal);
+
+    // if(IS_VT_MODE(VT_LMN_MODE)){
+        // terminal->cursor.x = 0; // return to start of line.
+    // }
 }
 
 void vt_handler(Terminal* terminal){
@@ -992,13 +987,15 @@ void csi_cuf_handler(Terminal* terminal){
     int cols_number = 1;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT((len <= 1), "cuf -> number of parameters is larger than 1.\n");
-
-    if (len == 1){
+    if (parameters == NULL || parameters[0] == 0){
+        cols_number = 1;
+    }else{
+        ASSERT((len <= 1), "cuf -> number of parameters is larger than 1.\n");
         cols_number = parameters[0];
     }
+
     ASSERT((BETWEEN(cols_number, 
-                    0, 
+                    1, 
                     (terminal->cols_number - 1) - terminal->cursor.x)),
            "cuf -> number of cols exceed limit.\n");
 
@@ -1359,6 +1356,10 @@ void csi_sm_handler(Terminal* terminal){
         if (parameters[0] == 25){
             // TODO show cursor.
         }
+        if (parameters[0] == 1049){
+            terminal->saved_cursor.x = terminal->cursor.x;
+            terminal->saved_cursor.y = terminal->cursor.y;
+        }
         // any other is ignored.
 
 
@@ -1417,6 +1418,10 @@ void csi_rm_handler(Terminal* terminal){
         }
         if (parameters[0] == 25){
             // TODO hide cursor.
+        }
+        if (parameters[0] == 1049){
+            terminal->cursor.x = terminal->saved_cursor.x;
+            terminal->cursor.y = terminal->saved_cursor.y;
         }
         // any other is ignored.
 

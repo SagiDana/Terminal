@@ -48,7 +48,8 @@ int main();
 char shell[] = "/bin/bash";
 
 char font_name[] = "mononoki";
-double font_size = 14.0;
+// char font_name[] = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
+double font_size = 13.0;
 
 unsigned int cols = 80;
 unsigned int rows = 24;
