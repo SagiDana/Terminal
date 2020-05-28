@@ -307,7 +307,6 @@ int draw_element(TElement* element, int x, int y){
                                 &xft_foreground_color, 
                                 &xft_glyph_spec, 
                                 1);
-
     }
 
     XftColorFree(   xterminal.display,

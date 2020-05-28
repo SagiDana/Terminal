@@ -937,13 +937,15 @@ void csi_cuu_handler(Terminal* terminal){
     int rows_number = 1;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT((len <= 1), "cuu -> number of parameters is larger than 1.\n");
-
-    if (len == 1){
+    if (parameters == NULL || parameters[0] == 0){
+        rows_number = 1;
+    }else{
+        ASSERT((len <= 1), "cuu -> number of parameters is larger than 1.\n");
         rows_number = parameters[0];
     }
+
     ASSERT((BETWEEN(rows_number, 
-                    0, 
+                    1, 
                     terminal->cursor.y)),
            "cuu -> number of rows exceed limit.\n");
 
@@ -961,13 +963,15 @@ void csi_cud_handler(Terminal* terminal){
     int rows_number = 1;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT((len <= 1), "cud -> number of parameters is larger than 1.\n");
-
-    if (len == 1){
+    if (parameters == NULL || parameters[0] == 0){
+        rows_number = 1;
+    }else{
+        ASSERT((len <= 1), "cud -> number of parameters is larger than 1.\n");
         rows_number = parameters[0];
     }
+
     ASSERT((BETWEEN(rows_number, 
-                    0, 
+                    1, 
                     (terminal->rows_number - 1) - terminal->cursor.y)),
            "cud -> number of rows exceed limit.\n");
 
@@ -1011,13 +1015,15 @@ void csi_cub_handler(Terminal* terminal){
     int cols_number = 1;
 
     parameters = csi_get_parameters(terminal, &len);
-    ASSERT((len <= 1), "cub -> number of parameters is larger than 1.\n");
-
-    if (len == 1){
+    if (parameters == NULL || parameters[0] == 0){
+        cols_number = 1;
+    }else{
+        ASSERT((len <= 1), "cub -> number of parameters is larger than 1.\n");
         cols_number = parameters[0];
     }
+
     ASSERT((BETWEEN(cols_number, 
-                    0, 
+                    1, 
                     terminal->cursor.x)),
            "cub -> number of cols exceed limit.\n");
 
@@ -1789,7 +1795,7 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
         }
     }
 
-    LOG("Putting char: '%c'\n", character_code);
+    LOG("Putting char: '%c' (%d, %d)\n", character_code, terminal->cursor.x, terminal->cursor.y);
     // not a control code:
     // insert simple element to the terminal and moving
     // cursor forward.
