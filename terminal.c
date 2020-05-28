@@ -39,7 +39,8 @@
 // the '?' character was prefixed the parameters what indicates use we 
 // in private mode.
 #define PRIVATE_MODE    (1 << 5)
-#define CSI_DOL_MODE    (1 << 6)
+
+#define CSI_SPACE_MODE  (1 << 7)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
@@ -1032,16 +1033,21 @@ fail:
 void csi_ed_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_ed_handler");
 
-    // TODO: make it more readable.
-
+    int i;
     int ret;
     int len = 0;
     int* parameters = NULL;
+    int todo;
     parameters = csi_get_parameters(terminal, &len);
     
-    // default: from cursor to end of display
     if ((parameters == NULL) || (parameters[0] == 0)){ // default.
-        int i;
+        todo = 0;
+    }else{
+        ASSERT((len == 1), "number of parameters is not 1.\n");
+        todo = parameters[0];
+    }
+    
+    if (todo == 0){ // from cursor to end of display
         for (i = terminal->cursor.x; i < terminal->cols_number; i++){
             ret = terminal_empty_element(  terminal, 
                                             i, 
@@ -1052,13 +1058,8 @@ void csi_ed_handler(Terminal* terminal){
             ret = terminal_empty_line(terminal, i);
             ASSERT(ret == 0, "failed to empty line.\n");
         }
-        return;
     }
-    
-    ASSERT((len == 1), "number of parameters is not 1.\n");
-
-    if (parameters[0] == 1){ // from start to cursor
-        int i;
+    if (todo == 1){ // from start to cursor
         for (i = 0; i < terminal->cursor.y; i++){
             ret = terminal_empty_line(terminal, i);
             ASSERT(ret == 0, "failed to empty line.\n");
@@ -1070,11 +1071,11 @@ void csi_ed_handler(Terminal* terminal){
             ASSERT(ret == 0, "failed to delete element.\n");
         }
     } 
-    if (parameters[0] == 2){ // all display
+    if (todo == 2){ // all display
         ret = terminal_empty(terminal);
         ASSERT(ret == 0, "failed to empty terminal.\n");
     }
-    if (parameters[0] == 3){ // all display + scrollback
+    if (todo == 3){ // all display + scrollback
         ret = terminal_empty(terminal);
         ASSERT(ret == 0, "failed to empty terminal.\n");
         // TODO erase scrollback when we have one.
@@ -1312,6 +1313,9 @@ void csi_sm_handler(Terminal* terminal){
         if (parameters[0] == 9){
             SET_VT_MODE(VT_DECINLM_MODE);
         }
+        if (parameters[0] == 25){
+            // TODO show cursor.
+        }
         // any other is ignored.
 
 
@@ -1367,6 +1371,9 @@ void csi_rm_handler(Terminal* terminal){
         }
         if (parameters[0] == 9){
             SET_NO_VT_MODE(VT_DECINLM_MODE);
+        }
+        if (parameters[0] == 25){
+            // TODO hide cursor.
         }
         // any other is ignored.
 
@@ -1455,6 +1462,11 @@ fail:
 
 void csi_decll_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_decll_handler");
+
+    // DECSCUSR -> change cursor style.
+    if (IS_MODE(CSI_SPACE_MODE)){ 
+        return;
+    }
 }
 
 void csi_decstbm_handler(Terminal* terminal){
@@ -1501,14 +1513,14 @@ void csi_hpa_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_hpa_handler");
 }
 
-void csi_dol_handler(Terminal* terminal){
-    DEBUG_CSI_HANDLER("csi_dol_handler");
+void csi_space_handler(Terminal* terminal){
+    DEBUG_CSI_HANDLER("csi_space_handler");
 
-    SET_MODE(CSI_DOL_MODE);
+    SET_MODE(CSI_SPACE_MODE);
 }
 
 void (*csi_code_handlers[200])(Terminal* terminal) = {
-    ['$'] = csi_dol_handler,
+    [' '] = csi_space_handler,
 
     ['@'] = csi_ich_handler,
     ['A'] = csi_cuu_handler,
@@ -1547,46 +1559,6 @@ void (*csi_code_handlers[200])(Terminal* terminal) = {
 // ----------------------------------------------------------------------
 // Top level handlers
 // ----------------------------------------------------------------------
-
-int handle_csi_dol_codes(Terminal* terminal, unsigned char control_code){
-    if (!IS_MODE(CSI_DOL_MODE)){
-        return FALSE;
-    }
-
-    if (control_code == 'p'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-    if (control_code == 'v'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-    if (control_code == 'z'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-    if (control_code == 'x'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-    if (control_code == 'r'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-    if (control_code == 't'){
-        LOG("csi_dol -> handle control_code: %d\n", control_code);
-        SET_NO_MODE(CSI_DOL_MODE);
-        return TRUE;
-    }
-
-    LOG("csi_dol -> failed to handle control_code: %d\n", control_code);
-    return TRUE;
-}
 
 int handle_osc_codes(Terminal* terminal, unsigned char control_code){
     if (!IS_MODE(OSC_MODE)){
@@ -1652,10 +1624,17 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
     // NOTE: these characters will only come after numbers.
     // 0x20 <= control_code <= 0x2F
     // intermediate characters of csi.
+    if (BETWEEN(control_code, 0x20, 0x2F)){
+        if (csi_code_handlers[control_code]){
+            (csi_code_handlers[control_code])(terminal);
+        }else{
+            LOG("csi handler wasn't found for: %d\n", control_code);
+            LOG("parameters for debuging: \"%s\".\n", terminal->csi_parameters);
+        }
+        return TRUE;
+    }
 
-    if ((BETWEEN(control_code, 0x40, 0x7E)) ||
-        (BETWEEN(control_code, 0x20, 0x2F))){
-
+    if (BETWEEN(control_code, 0x40, 0x7E)){
         if (csi_code_handlers[control_code]){
             (csi_code_handlers[control_code])(terminal);
         }else{
@@ -1666,6 +1645,7 @@ int handle_csi_codes(Terminal* terminal, unsigned char control_code){
         memset(&terminal->csi_parameters, 0, sizeof(terminal->csi_parameters));
         terminal->csi_parameters_index = 0;
 
+        SET_NO_MODE(CSI_SPACE_MODE);
         SET_NO_MODE(PRIVATE_MODE);
         SET_NO_MODE(CSI_MODE);
         SET_NO_MODE(ESC_MODE);
@@ -1779,10 +1759,6 @@ int handle_control_codes(Terminal* terminal, unsigned char control_code){
     }
 
     if (handle_set_g1_charset(terminal, control_code)){
-        return TRUE;
-    }
-
-    if (handle_csi_dol_codes(terminal, control_code)){
         return TRUE;
     }
 
