@@ -290,6 +290,43 @@ fail:
     return -1;
 }
 
+int terminal_scroll_right(Terminal* terminal, int y, int left, int right, int chars_number){
+    return 0;
+}
+
+int terminal_scroll_left(Terminal* terminal, int y, int left, int right, int chars_number){
+
+	// dst = term.c.x;
+	// src = term.c.x + n;
+	// size = term.col - src;
+	// line = term.line[term.c.y];
+	// memmove(&line[dst], &line[src], size * sizeof(Glyph));
+	// tclearregion(term.col-n, term.c.y, term.col-1, term.c.y);
+
+    // TODO: add range check on chars_number!
+
+    ASSERT((BETWEEN(left, 0, terminal->cols_number - 1)), 
+           "scroll_left -> parameter not in range.\n");
+    ASSERT((BETWEEN(right, left, terminal->cols_number - 1)), 
+           "scroll_left -> parameter not in range.\n");
+
+    TElement* line = &terminal->screen[(REAL_Y(y) * terminal->cols_number)];
+
+    int dst = left;
+    int src = left + chars_number;
+    memmove(&line[dst], 
+            &line[src], 
+            sizeof(TElement) * (right - src));
+    int i;
+    for (i = 0; i < chars_number; i++){
+        terminal_empty_element(terminal, right - i, y);
+    }
+
+    return 0;
+fail:
+    return -1;
+}
+
 int terminal_scrollup(Terminal* terminal, int top_y, int bottom_y, int lines_number){
     int ret;
     int i;
@@ -1154,6 +1191,32 @@ fail:
 
 void csi_dch_handler(Terminal* terminal){
     DEBUG_CSI_HANDLER("csi_dch_handler");
+
+    int ret;
+    int len = 0;
+    int* parameters = NULL;
+    int chars_number;
+
+    parameters = csi_get_parameters(terminal, &len);
+    if (parameters == NULL || parameters[0] == 0){
+        chars_number = 1;
+    }else{
+        ASSERT((len == 1), "csi_il -> number of parameters is: %d\n", len);
+        chars_number = parameters[0];
+    }
+
+    ASSERT((len <= 1), "too many parameters.\n");
+
+    int left = terminal->cursor.x;
+    int right = terminal->cols_number - 1;
+
+    LOG("left: %d, right: %d\n", left, right);
+
+    ret = terminal_scroll_left(terminal, terminal->cursor.y, left, right, chars_number);
+    ASSERT(ret == 0, "failed to scroll left.\n");
+
+fail:
+    csi_free_parameters(parameters);
 }
 
 void csi_ech_handler(Terminal* terminal){
