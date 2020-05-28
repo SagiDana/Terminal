@@ -295,20 +295,12 @@ int terminal_scroll_right(Terminal* terminal, int y, int left, int right, int ch
 }
 
 int terminal_scroll_left(Terminal* terminal, int y, int left, int right, int chars_number){
-
-	// dst = term.c.x;
-	// src = term.c.x + n;
-	// size = term.col - src;
-	// line = term.line[term.c.y];
-	// memmove(&line[dst], &line[src], size * sizeof(Glyph));
-	// tclearregion(term.col-n, term.c.y, term.col-1, term.c.y);
-
-    // TODO: add range check on chars_number!
-
     ASSERT((BETWEEN(left, 0, terminal->cols_number - 1)), 
            "scroll_left -> parameter not in range.\n");
     ASSERT((BETWEEN(right, left, terminal->cols_number - 1)), 
            "scroll_left -> parameter not in range.\n");
+    ASSERT(BETWEEN(chars_number, 0, right - left), 
+           "chars number given is out of range.\n");
 
     TElement* line = &terminal->screen[(REAL_Y(y) * terminal->cols_number)];
 
