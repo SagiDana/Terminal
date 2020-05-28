@@ -337,25 +337,17 @@ int terminal_scrollup(Terminal* terminal, int top_y, int bottom_y, int lines_num
     // and can just empty all lines
     ASSERT((left_lines >= 0), "too much to scroll.\n");
 
-    LOG("top_y: %d, bottom_y: %d, lines_number: %d, left_lines: %d\n", 
-            top_y,
-            bottom_y,
-            lines_number,
-            left_lines);
-
     // the order is important here so we dont 
     // override the lines we need to copy.
     // so we move the lines from the end to the start.
-    for (i = 0; i < left_lines; i++){
+    for (i = 0; i <= left_lines; i++){
         ret = terminal_move_line(   terminal,
                                     (bottom_y - left_lines) + i,
                                     top_y + i);
         ASSERT(ret == 0, "failed to move line.\n");
     }
 
-    int empty_lines = bottom_y - top_y - left_lines;
-
-    for (i = 0; i < empty_lines; i++){
+    for (i = 0; i < lines_number; i++){
         ret = terminal_empty_line(terminal, bottom_y - i);
         ASSERT(ret == 0, "failed to empty line.\n");
     }
@@ -370,7 +362,6 @@ int terminal_scrolldown(Terminal* terminal, int top_y, int bottom_y, int lines_n
     int i;
 
     ASSERT((lines_number > 0), "lines number to scroll invalid.\n");
-
     ASSERT((BETWEEN(top_y, 0, terminal->rows_number - 1)),
            "starting scroll position is not in range.\n");
     ASSERT((BETWEEN(bottom_y, top_y, terminal->rows_number - 1)),
@@ -385,16 +376,14 @@ int terminal_scrolldown(Terminal* terminal, int top_y, int bottom_y, int lines_n
     // the order is important here so we dont 
     // override the lines we need to copy.
     // so we move the lines from the end to the start.
-    for (i = 0; i < left_lines; i++){
+    for (i = 0; i <= left_lines; i++){
         ret = terminal_move_line(   terminal,
                                     (top_y + left_lines) - i,
                                     bottom_y - i);
         ASSERT(ret == 0, "failed to move line.\n");
     }
 
-    int empty_lines = bottom_y - top_y - left_lines;
-
-    for (i = 0; i < empty_lines; i++){
+    for (i = 0; i < lines_number; i++){
         ret = terminal_empty_line(terminal, top_y + i);
         ASSERT(ret == 0, "failed to empty line.\n");
     }
@@ -1790,7 +1779,6 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
 
     // can be control character only if 1 byte.
     if (BETWEEN(character_code, 0, 0xFF)){
-        // LOG("cursor position: x: %d, y: %d\n", terminal->cursor.x, terminal->cursor.y);
         unsigned char control_code = character_code & 0xFF;
         ret = handle_control_codes(terminal, control_code);
         if (ret == TRUE){
@@ -1798,13 +1786,10 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
         }
     }
 
+    LOG("Putting char: '%c'\n", character_code);
     // not a control code:
     // insert simple element to the terminal and moving
     // cursor forward.
-    ASSERT(BETWEEN( (&ELEMENT),
-                    terminal->screen, 
-                    (terminal->screen + (terminal->rows_number * terminal->cols_number * sizeof(TElement)))), 
-            "out of bound!\n");
     ELEMENT.character_code = character_code;
     ELEMENT.foreground_color = terminal->foreground_color;
     ELEMENT.background_color = terminal->background_color;
