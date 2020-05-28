@@ -30,15 +30,16 @@
 #define SET_NO_VT_MODE(x)   (terminal->vt_mode &= (~x))
 
 // terminal state machine modes definitions
-#define ESC_MODE        (1 << 0)
-#define G0_MODE         (1 << 1) // define G0 charset.
-#define G1_MODE         (1 << 2) // define G1 charset.
-#define CSI_MODE        (1 << 3)
-#define OSC_MODE        (1 << 4)
+#define ESC_MODE            (1 << 0)
+#define ESC_G0_MODE         (1 << 1) // define G0 charset.
+#define ESC_G1_MODE         (1 << 2) // define G1 charset.
+#define ESC_CHARSET_MODE    (1 << 3) // define charset.
+#define CSI_MODE            (1 << 4)
+#define OSC_MODE            (1 << 5)
 // this mode is currently used by csi_get_parameters() to let us know 
 // the '?' character was prefixed the parameters what indicates use we 
 // in private mode.
-#define PRIVATE_MODE    (1 << 5)
+#define PRIVATE_MODE    (1 << 6)
 
 #define CSI_SPACE_MODE  (1 << 7)
 
@@ -555,6 +556,11 @@ void esc_decsc_handler(Terminal* terminal){
 
 void esc_decrc_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_decrc_handler");
+
+    if (IS_MODE(ESC_CHARSET_MODE)){
+        LOG("Set utf8 charset - obselete.\n");
+        return;
+    }
 }
 
 void esc_select_charset_handler(Terminal* terminal){
@@ -564,13 +570,13 @@ void esc_select_charset_handler(Terminal* terminal){
 void esc_define_g0_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g0_charset_handler");
 
-    SET_MODE(G0_MODE);
+    SET_MODE(ESC_G0_MODE);
 }
 
 void esc_define_g1_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_define_g1_charset_handler");
 
-    SET_MODE(G1_MODE);
+    SET_MODE(ESC_G1_MODE);
 }
 
 void esc_decpnm_handler(Terminal* terminal){
@@ -591,7 +597,55 @@ void esc_osc_handler(Terminal* terminal){
     SET_MODE(OSC_MODE);
 }
 
+void esc_set_uk_charset_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_set_uk_charset_handler");
+
+    if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
+
+    if (IS_MODE(ESC_G0_MODE)){
+    }
+    if (IS_MODE(ESC_G1_MODE)){
+    }
+}
+
+void esc_set_us_charset_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_set_us_charset_handler");
+    if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
+
+    if (IS_MODE(ESC_G0_MODE)){
+    }
+    if (IS_MODE(ESC_G1_MODE)){
+    }
+}
+
+void esc_set_special_charset_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_set_special_charset_handler");
+    if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
+
+    if (IS_MODE(ESC_G0_MODE)){
+    }
+    if (IS_MODE(ESC_G1_MODE)){
+    }
+}
+
+void esc_set_default_charset_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_set_default_charset_handler");
+    if (!IS_MODE(ESC_CHARSET_MODE)) return;
+}
+
+void esc_set_utf8_charset_handler(Terminal* terminal){
+    DEBUG_ESC_HANDLER("esc_set_utf8_charset_handler");
+    if (!IS_MODE(ESC_CHARSET_MODE)) return;
+}
+
 void (*esc_code_handlers[100])(Terminal* terminal) = {
+    ['A'] = esc_set_uk_charset_handler,
+    ['B'] = esc_set_us_charset_handler,
+    ['0'] = esc_set_special_charset_handler,
+
+    ['@'] = esc_set_default_charset_handler,
+    ['G'] = esc_set_utf8_charset_handler,
+
     ['c'] = esc_ris_handler,
     ['D'] = esc_ind_handler,
     ['E'] = esc_nel_handler,
@@ -1670,78 +1724,32 @@ int handle_esc_codes(Terminal* terminal, unsigned char control_code){
         return FALSE;
     }
 
+    // handle charset sequences (dont leave esc mode).
+    if ((control_code == '(') ||
+        (control_code == ')') ||
+        (control_code == '%')){
+        if (esc_code_handlers[control_code]){
+            (esc_code_handlers[control_code])(terminal);
+            return TRUE;
+        }
+        LOG("no esc handler found for: %u (charset sequence).\n", control_code);
+    }
+
     if (esc_code_handlers[control_code]){
         (esc_code_handlers[control_code])(terminal);
 
+        SET_NO_MODE(ESC_G0_MODE);
+        SET_NO_MODE(ESC_G1_MODE);
+        SET_NO_MODE(ESC_CHARSET_MODE);
         SET_NO_MODE(ESC_MODE);
         return TRUE;
-    }else{
-        LOG("no esc handler found for: %u\n", control_code);
     }
 
-    return TRUE;
-}
-
-int handle_set_g0_charset(Terminal* terminal, unsigned char control_code){
-    if (!IS_MODE(G0_MODE)){
-        return FALSE;
-    }
-
-    if (control_code == 'A'){
-        // Set United Kingdom G0 charset
-    }
-    if (control_code == 'B'){
-        // Set United State G0 charset
-    }
-    if (control_code == '0'){
-        // Set G0 special chars. & line set
-    }
-    if (control_code == '1'){
-        // Set G0 alternate character ROM
-    }
-    if (control_code == '2'){
-        // Set G0 alternate character ROM & spec & graphic
-    }
-    if (control_code == 'U'){
-    }
-    if (control_code == 'K'){
-    }
-
-    SET_NO_MODE(G0_MODE);
-    return TRUE;
-}
-
-int handle_set_g1_charset(Terminal* terminal, unsigned char control_code){
-    if (!IS_MODE(G1_MODE)){
-        return FALSE;
-    }
-
-    if (control_code == 'A'){
-        // Set United Kingdom G1 charset
-    }
-    if (control_code == 'B'){
-        // Set United State G1 charset
-    }
-    if (control_code == '0'){
-        // Set G1 special chars. & line set
-    }
-    if (control_code == '1'){
-        // Set G1 alternate character ROM
-    }
-    if (control_code == '2'){
-        // Set G1 alternate character ROM & spec & graphic
-    }
-    if (control_code == 'U'){
-    }
-    if (control_code == 'K'){
-    }
-
-    SET_NO_MODE(G1_MODE);
+    LOG("no esc handler found for: %u\n", control_code);
     return TRUE;
 }
 
 int handle_control_codes(Terminal* terminal, unsigned char control_code){
-    
 	/* 
      * FROM ST:
      * 
@@ -1751,14 +1759,6 @@ int handle_control_codes(Terminal* terminal, unsigned char control_code){
 	 * character.
 	 */
     if (handle_osc_codes(terminal, control_code)){
-        return TRUE;
-    }
-
-    if (handle_set_g0_charset(terminal, control_code)){
-        return TRUE;
-    }
-
-    if (handle_set_g1_charset(terminal, control_code)){
         return TRUE;
     }
 
