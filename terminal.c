@@ -210,10 +210,8 @@ int terminal_rotate_lines(Terminal* terminal){
 int terminal_forward_cursor(Terminal* terminal){
     if (terminal->cursor.x + 1 < terminal->cols_number){
         terminal->cursor.x++;
-        return 0;
     }
-
-    return -1;
+    return 0;
 }
 
 int terminal_empty_element(Terminal* terminal, int x, int y){
