@@ -250,8 +250,6 @@ int terminal_new_line(Terminal* terminal){
 
     if (terminal->cursor.y + 1 < terminal->rows_number){
         terminal->cursor.y++;
-        ret = terminal_empty_line(terminal, terminal->cursor.y);
-        ASSERT(ret == 0, "failed to empty new line.\n");
     }else{
         ret = terminal_scrollup(terminal, terminal->top, terminal->bottom, 1);
         ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
