@@ -8,8 +8,9 @@
 #include <sys/ioctl.h>
 
 
-#define REAL_Y(y) ((terminal->start_line_index + y) % terminal->rows_number)
-#define ELEMENT (terminal->screen[(REAL_Y(terminal->cursor.y) * terminal->cols_number) + terminal->cursor.x])
+#define BLANK_ELEMENT (' ')
+
+#define ELEMENT (terminal->screen[(terminal->cursor.y * terminal->cols_number) + terminal->cursor.x])
 
 // VT100 modes
 #define VT_LMN_MODE         (1 << 0) // New line mode
@@ -144,7 +145,8 @@ Terminal* terminal_create(  TPty* pty,
 
     terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
-    memset(terminal->screen, 0, sizeof(TElement) * cols_number * rows_number);
+
+    terminal_empty(terminal);
 
     return terminal;
 
@@ -189,7 +191,8 @@ int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
 
     terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT(terminal->screen, "failed to malloc screen.\n");
-    memset(terminal->screen, 0, sizeof(TElement) * cols_number * rows_number);
+
+    terminal_empty(terminal);
 
     // Notify shell change in size!
     pty_resize( terminal->pty, 
@@ -199,12 +202,6 @@ int terminal_resize(Terminal* terminal, int cols_number, int rows_number){
 
 fail:
     return -1;
-}
-
-int terminal_rotate_lines(Terminal* terminal){
-    terminal->start_line_index = (terminal->start_line_index + 1) % terminal->rows_number;
-
-    return 0;
 }
 
 int terminal_forward_cursor(Terminal* terminal){
@@ -217,16 +214,19 @@ int terminal_forward_cursor(Terminal* terminal){
 int terminal_empty_element(Terminal* terminal, int x, int y){
     TElement* element = NULL;
 
-    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
+    element = &terminal->screen[(y * terminal->cols_number) + x];
 
-    memset(element, 0, sizeof(TElement));
+    element->character_code = BLANK_ELEMENT;
+    element->background_color = terminal->default_background_color;
+    element->foreground_color = terminal->default_foreground_color;
+    element->attributes = 0;
     return 0;
 }
 
 int terminal_empty_line(Terminal* terminal, int y){
-    memset( &terminal->screen[REAL_Y(y) * terminal->cols_number],
-            0,
-            sizeof(TElement) * terminal->cols_number);
+    for (int x = 0; x < terminal->cols_number; x++){
+        terminal_empty_element(terminal, x, y);
+    }
 
     return 0;
 }
@@ -250,13 +250,12 @@ int terminal_new_line(Terminal* terminal){
 
     if (terminal->cursor.y + 1 < terminal->rows_number){
         terminal->cursor.y++;
+        ret = terminal_empty_line(terminal, terminal->cursor.y);
+        ASSERT(ret == 0, "failed to empty new line.\n");
     }else{
-        ret = terminal_rotate_lines(terminal);
+        ret = terminal_scrollup(terminal, terminal->top, terminal->bottom, 1);
         ASSERT(ret == 0, "failed to rotate lines in terminal.\n");
     }
-
-    ret = terminal_empty_line(terminal, terminal->cursor.y);
-    ASSERT(ret == 0, "failed to empty new line.\n");
 
     return 0;
 
@@ -272,8 +271,8 @@ int terminal_move_line(Terminal* terminal, int src_y, int dst_y){
     ASSERT((BETWEEN(dst_y, 0, terminal->rows_number)), 
             "dst_y is not in range.\n");
 
-    memcpy(&terminal->screen[REAL_Y(dst_y) * terminal->cols_number],
-           &terminal->screen[REAL_Y(src_y) * terminal->cols_number],
+    memcpy(&terminal->screen[dst_y * terminal->cols_number],
+           &terminal->screen[src_y * terminal->cols_number],
            (sizeof(TElement) * terminal->cols_number));
 
     return 0;
@@ -293,7 +292,7 @@ int terminal_scroll_left(Terminal* terminal, int y, int left, int right, int cha
     ASSERT(BETWEEN(chars_number, 0, right - left), 
            "chars number given is out of range.\n");
 
-    TElement* line = &terminal->screen[(REAL_Y(y) * terminal->cols_number)];
+    TElement* line = &terminal->screen[(y * terminal->cols_number)];
 
     int dst = left;
     int src = left + chars_number;
@@ -421,9 +420,9 @@ void lf_handler(Terminal* terminal){
 
     terminal_new_line(terminal);
 
-    // if(IS_VT_MODE(VT_LMN_MODE)){
-        // terminal->cursor.x = 0; // return to start of line.
-    // }
+    if(IS_VT_MODE(VT_LMN_MODE)){
+        terminal->cursor.x = 0; // return to start of line.
+    }
 }
 
 void vt_handler(Terminal* terminal){
@@ -438,6 +437,9 @@ void cr_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("cr_handler");
 
     terminal->cursor.x = 0; // return to start of line.
+    // if (TRUE){
+        // terminal_new_line(terminal);
+    // }
 }
 
 void so_handler(Terminal* terminal){
@@ -1850,7 +1852,7 @@ fail:
 TElement* terminal_element(Terminal* terminal, int x, int y){
     TElement* element = NULL;
 
-    element = &terminal->screen[(REAL_Y(y) * terminal->cols_number) + x];
+    element = &terminal->screen[(y * terminal->cols_number) + x];
 
     return element;
 }
