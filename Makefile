@@ -34,3 +34,9 @@ t: ${OBJ}
 
 clean: 
 	rm t *.o
+
+install:
+	mkdir -p /usr/local/bin
+	cp -f t /usr/local/bin
+	chmod 755 /usr/local/bin/t
+	tic -sx terminal.info

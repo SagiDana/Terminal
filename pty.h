@@ -7,7 +7,7 @@ typedef struct{
 }TPty;
 
 
-TPty* pty_create(char** args);
+TPty* pty_create(char** args, char* terminal_name);
 void pty_destroy(TPty* pty);
 
 int pty_read(   TPty* pty, 

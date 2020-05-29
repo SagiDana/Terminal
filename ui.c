@@ -50,6 +50,8 @@ fail:
 
 // ------------------------------------------------------------------------------------
 
+int draw();
+
 // ------------------------------------------------------------------------------------
 // on event handlers
 // ------------------------------------------------------------------------------------
@@ -120,7 +122,9 @@ fail:
     return;
 }
 
-// ------------------------------------------------------------------------------------
+void on_expose(XEvent* event){
+    draw();
+}
 
 static void (*event_handlers[LASTEvent])(XEvent*) = {
     [KeyPress] = on_key_press,
@@ -128,7 +132,7 @@ static void (*event_handlers[LASTEvent])(XEvent*) = {
     [ConfigureNotify] = on_configure_notify,
     [VisibilityNotify] = on_event,
     [UnmapNotify] = on_event,
-    [Expose] = on_event,
+    [Expose] = on_expose,
     [FocusIn] = on_event,
     [FocusOut] = on_event,
     [MotionNotify] = on_event,
@@ -138,6 +142,8 @@ static void (*event_handlers[LASTEvent])(XEvent*) = {
     [PropertyNotify] = on_event,
     [SelectionRequest] = on_event
 };
+
+// ------------------------------------------------------------------------------------
 
 int setup_colors(){
     int ret;
@@ -398,7 +404,7 @@ int start(){
     xterminal.height = (border_pixels * 2) + xterminal.font->height * rows;
 
     char* args[] = { shell, NULL };
-    xterminal.pty = pty_create(args);
+    xterminal.pty = pty_create(args, terminal_name);
     ASSERT(xterminal.pty, "failed creating pty.\n");
 
     xterminal.terminal = terminal_create(   xterminal.pty,

@@ -60,13 +60,13 @@
 // debug escaped handlers macros.
 // ------------------------------------------------------------
 
-#define ESC_DEBUG
-#define CSI_DEBUG
-#define SGR_DEBUG
+// #define ESC_DEBUG
+// #define CSI_DEBUG
+// #define SGR_DEBUG
 
-// #undef ESC_DEBUG
-// #undef CSI_DEBUG
-// #undef SGR_DEBUG
+#undef ESC_DEBUG
+#undef CSI_DEBUG
+#undef SGR_DEBUG
 
 #ifdef ESC_DEBUG
 #define DEBUG_ESC_HANDLER(handler) do {                                 \
@@ -1801,7 +1801,7 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
         }
     }
 
-    LOG("Putting char: '%c' (%d, %d)\n", character_code, terminal->cursor.x, terminal->cursor.y);
+    // LOG("Putting char: '%c' (%d, %d)\n", character_code, terminal->cursor.x, terminal->cursor.y);
     // not a control code:
     // insert simple element to the terminal and moving
     // cursor forward.

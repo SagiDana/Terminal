@@ -23,7 +23,7 @@ void sigchld_handler(int arg){
 
 // ------------------------------------------------------------------------
 
-TPty* pty_create(char** args){
+TPty* pty_create(char** args, char* terminal_name){
     TPty* pty = NULL;
 
     pty = (TPty*) malloc(sizeof(TPty));
@@ -73,13 +73,11 @@ TPty* pty_create(char** args){
         unsetenv("LINES");
         unsetenv("TERMCAP");
 
+        setenv("TERM", terminal_name, 1);
         setenv("LOGNAME", pw->pw_name, 1);
         setenv("USER", pw->pw_name, 1);
         setenv("SHELL", args[0], 1);
         setenv("HOME", pw->pw_dir, 1);
-
-        // TODO: make the system aware of this terminal.
-        // setenv("TERM", "terminal", 1); 
 
         // setting signal handlers to defaults.
         signal(SIGCHLD, SIG_DFL);
