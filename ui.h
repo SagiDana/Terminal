@@ -74,6 +74,7 @@ typedef struct{
 
 static Key terminal_keys[] = {
 	{ XK_KP_Enter,      XK_ANY_MOD,     "\r" },
+	{ XK_BackSpace,     XK_ANY_MOD,     "\177" },
 	{ XK_Up,            XK_ANY_MOD,     "\033[A" },
 	{ XK_Down,          XK_ANY_MOD,     "\033[B" },
 	{ XK_Right,         XK_ANY_MOD,     "\033[C" },

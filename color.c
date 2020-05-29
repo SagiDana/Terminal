@@ -54,20 +54,10 @@ fail:
 }
 
 unsigned int map_4bit_to_true_color(unsigned int color){
-    if (BETWEEN(color, 30, 37)){
-        return colors_map[color - 30];
+    if (!BETWEEN(color, 0, 15)){
+        return 0;
     }
-    if (BETWEEN(color, 40, 47)){
-        return colors_map[color - 40];
-    }
-
-    if (BETWEEN(color, 90, 97)){
-        return colors_map[color - 90 + 8];
-    }
-    if (BETWEEN(color, 100, 107)){
-        return colors_map[color - 100 + 8];
-    }
-    return 0;
+    return colors_map[color];
 }
 
 

@@ -1,10 +1,7 @@
-- nvim problems:
-    - fix q problems... (dont know..)
-        - 'q' appear at the begining of lines in neovim.
-    - fix line numbers disapear.
+- fix long command not insert in a new line.
+- fix font not rendering properly.
 - add OSC escape handling.
 - support more attributes.
-- fix font not rendering properly.
 - show cursor properly.
 - scrollback buffer.
 - dump scrollback buffer to vim feature.

@@ -824,9 +824,12 @@ fail:
 int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int left){
     DEBUG_SGR_HANDLER("sgr_set_foreground_color_handler");
 
-    if (BETWEEN(parameters[0], 30, 37) ||
-        BETWEEN(parameters[0], 90, 97)){
-        terminal->foreground_color = parameters[0];
+    if (BETWEEN(parameters[0], 30, 37)){
+        terminal->foreground_color = parameters[0] - 30;
+        return 0;
+    }
+    if (BETWEEN(parameters[0], 90, 97)){
+        terminal->foreground_color = parameters[0] - 80;
         return 0;
     }
 
@@ -842,9 +845,12 @@ int sgr_set_foreground_color_handler(Terminal* terminal, int* parameters, int le
 int sgr_set_background_color_handler(Terminal* terminal, int* parameters, int left){
     DEBUG_SGR_HANDLER("sgr_set_background_color_handler");
 
-    if (BETWEEN(parameters[0], 40, 47) ||
-        BETWEEN(parameters[0], 100, 107)){
-        terminal->foreground_color = parameters[0];
+    if (BETWEEN(parameters[0], 40, 47)){
+        terminal->background_color = parameters[0] - 40;
+        return 0;
+    }
+    if (BETWEEN(parameters[0], 100, 107)){
+        terminal->background_color = parameters[0] - 90;
         return 0;
     }
 
