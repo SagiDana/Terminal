@@ -24,6 +24,7 @@ typedef struct{
     XftColor background_color;
     XftColor foreground_color;
 
+    GC gc;
     XftDraw* xft_draw;
     TFont* font;
 
@@ -49,17 +50,17 @@ char shell[] = "/bin/bash";
 
 char font_name[] = "mononoki";
 // char font_name[] = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
-double font_size = 13.0;
+double font_size = 12.0;
 
 unsigned int cols = 80;
 unsigned int rows = 24;
+unsigned int border_pixels = 2;
 
 // -----------------------------------------------------------------------
 // colors
 // -----------------------------------------------------------------------
 char background_color[] = "#333333";
-char foreground_color[] = "#FFCC00";
-// char foreground_color[] = "#00CC00";
+char foreground_color[] = "#C0C0C0";
 
 // -----------------------------------------------------------------------
 // keys

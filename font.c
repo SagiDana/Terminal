@@ -1,6 +1,7 @@
 #include "font.h"
 
 #include <stdlib.h>
+#include <math.h>
 
 
 // font styles definitions

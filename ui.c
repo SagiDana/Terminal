@@ -64,8 +64,8 @@ void on_configure_notify(XEvent* event){
     xterminal.width = configure_event->width;
     xterminal.height = configure_event->height;
 
-    int cols_number = configure_event->width / xterminal.font->width;
-    int rows_number = configure_event->height / xterminal.font->height;
+    int cols_number = (xterminal.width - (2 * border_pixels)) / xterminal.font->width;
+    int rows_number = (xterminal.height - (2 * border_pixels)) / xterminal.font->height;
 
     // no need to resize!
     if (cols_number == xterminal.terminal->cols_number &&
@@ -75,15 +75,15 @@ void on_configure_notify(XEvent* event){
 
     LOG("resize just happened.\n");
 
-	// XFreePixmap(xterminal.display, xterminal.drawable);
+	XFreePixmap(xterminal.display, xterminal.drawable);
 
-	// xterminal.drawable = XCreatePixmap( xterminal.display, 
-                                        // xterminal.window, 
-                                        // xterminal.width,
-                                        // xterminal.height,
-                                        // DefaultDepth(xterminal.display, xterminal.screen));
+	xterminal.drawable = XCreatePixmap( xterminal.display, 
+                                        xterminal.window, 
+                                        xterminal.width,
+                                        xterminal.height,
+                                        DefaultDepth(xterminal.display, xterminal.screen));
 
-	// XftDrawChange(xterminal.xft_draw, xterminal.drawable);
+	XftDrawChange(xterminal.xft_draw, xterminal.drawable);
 
     ret = terminal_resize(xterminal.terminal, cols_number, rows_number);
     ASSERT(ret == 0, "failed to resize terminal.\n");
@@ -284,8 +284,8 @@ int draw_element(TElement* element, int x, int y){
     if (glyph_index){
         int draw_x, draw_y;
 
-        draw_x = x * xterminal.font->width;
-        draw_y = y * xterminal.font->height;
+        draw_x = border_pixels + (x * xterminal.font->width);
+        draw_y = border_pixels + (y * xterminal.font->height);
 
         // draw background
         XftDrawRect(xterminal.xft_draw, 
@@ -295,18 +295,28 @@ int draw_element(TElement* element, int x, int y){
                 xterminal.font->width,
                 xterminal.font->height);
 
+        /* Set the clip region because Xft is sometimes dirty. */
+        XRectangle rectangle;
+        rectangle.x = 0;
+        rectangle.y = 0;
+        rectangle.height = xterminal.font->height;
+        rectangle.width = xterminal.font->width;
+        XftDrawSetClipRectangles(xterminal.xft_draw, draw_x, draw_y, &rectangle, 1);
+
         xft_glyph_spec.font = current_font;
         xft_glyph_spec.glyph = glyph_index;
         xft_glyph_spec.x = draw_x;
-
-        // TODO: find out why this happens. and fix it!
-        xft_glyph_spec.y = (y + 1) * (xterminal.font->height); 
+        // it is important to add the ascent  to the y.
+        xft_glyph_spec.y = draw_y + xterminal.font->normal_font->ascent;
 
         // draw foreground
         XftDrawGlyphFontSpec(   xterminal.xft_draw, 
                                 &xft_foreground_color, 
                                 &xft_glyph_spec, 
                                 1);
+
+        /* Reset clip to none. */
+        XftDrawSetClip(xterminal.xft_draw, 0);
     }
 
     XftColorFree(   xterminal.display,
@@ -352,6 +362,17 @@ int draw(){
             ASSERT(ret == 0, "failed to draw element.\n");
         }
     }
+
+    // all drawing takes effect here.
+	XCopyArea(  xterminal.display, 
+                xterminal.drawable,
+                xterminal.window,
+                xterminal.gc,
+                0, 0,
+                xterminal.width,
+                xterminal.height,
+                0, 0);
+
     XFlush(xterminal.display);
 
     return 0;
@@ -373,8 +394,8 @@ int start(){
 
     xterminal.x = 0;
     xterminal.y = 0;
-    xterminal.width = xterminal.font->width * cols;
-    xterminal.height = xterminal.font->height * rows;
+    xterminal.width = (border_pixels * 2) + xterminal.font->width * cols;
+    xterminal.height = (border_pixels * 2) + xterminal.font->height * rows;
 
     char* args[] = { shell, NULL };
     xterminal.pty = pty_create(args);
@@ -418,45 +439,38 @@ int start(){
                                     CWBitGravity | CWEventMask | CWColormap | CWBackPixel | CWBorderPixel,
                                     &attrs);
 
-	// xterminal.drawable = XCreatePixmap( xterminal.display, 
-                                        // xterminal.window, 
-                                        // xterminal.width,
-                                        // xterminal.height,
-                                        // DefaultDepth(xterminal.display, xterminal.screen));
-    // ASSERT((xterminal.drawable != BadValue), "failed to create pixmap\n");
-    // ASSERT((xterminal.drawable != BadDrawable), "failed to create pixmap\n");
-    // ASSERT((xterminal.drawable != BadAlloc), "failed to create pixmap\n");
+	XGCValues gcvalues;
+	memset(&gcvalues, 0, sizeof(gcvalues));
+	gcvalues.graphics_exposures = FALSE;
 
-	// XGCValues gcvalues;
-	// memset(&gcvalues, 0, sizeof(gcvalues));
-	// gcvalues.graphics_exposures = FALSE;
+	xterminal.gc = XCreateGC(   xterminal.display, 
+                                parent, 
+                                GCGraphicsExposures,
+                                &gcvalues);
 
-	// GC gc = XCreateGC(  xterminal.display, 
-                        // parent, 
-                        // GCGraphicsExposures,
-			            // &gcvalues);
+	xterminal.drawable = XCreatePixmap( xterminal.display, 
+                                        xterminal.window, 
+                                        xterminal.width,
+                                        xterminal.height,
+                                        DefaultDepth(xterminal.display, xterminal.screen));
 
-	// XSetForeground( xterminal.display, 
-                    // gc, 
-                    // xterminal.background_color.pixel);
+	XSetForeground( xterminal.display, 
+                    xterminal.gc, 
+                    xterminal.background_color.pixel);
 
-	// XFillRectangle( xterminal.display, 
-                    // xterminal.drawable, 
-                    // gc, 
-                    // 0, 
-                    // 0, 
-                    // xterminal.width, 
-                    // xterminal.height);
-
-    // xterminal.xft_draw = XftDrawCreate( xterminal.display,
-                                        // xterminal.drawable,
-                                        // xterminal.visual,
-                                        // xterminal.colormap);
+	XFillRectangle( xterminal.display, 
+                    xterminal.drawable, 
+                    xterminal.gc, 
+                    0, 
+                    0, 
+                    xterminal.width, 
+                    xterminal.height);
 
     xterminal.xft_draw = XftDrawCreate( xterminal.display,
-                                        xterminal.window,
+                                        xterminal.drawable,
                                         xterminal.visual,
                                         xterminal.colormap);
+    ASSERT((xterminal.xft_draw != NULL), "failed to create xft_draw\n");
 
     XMapWindow(xterminal.display, xterminal.window);
     XSync(xterminal.display, FALSE);
