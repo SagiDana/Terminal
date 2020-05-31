@@ -51,6 +51,7 @@ fail:
 // ------------------------------------------------------------------------------------
 
 int draw();
+int clean_screen();
 
 // ------------------------------------------------------------------------------------
 // on event handlers
@@ -86,6 +87,8 @@ void on_configure_notify(XEvent* event){
                                         DefaultDepth(xterminal.display, xterminal.screen));
 
 	XftDrawChange(xterminal.xft_draw, xterminal.drawable);
+
+    clean_screen();
 
     ret = terminal_resize(xterminal.terminal, cols_number, rows_number);
     ASSERT(ret == 0, "failed to resize terminal.\n");
@@ -342,6 +345,13 @@ fail:
 }
 
 int clean_screen(){
+    XRectangle rectangle;
+    rectangle.x = 0;
+    rectangle.y = 0;
+    rectangle.height = xterminal.height;
+    rectangle.width = xterminal.width;
+    XftDrawSetClipRectangles(xterminal.xft_draw, 0, 0, &rectangle, 1);
+
     XftDrawRect(    xterminal.xft_draw,
                     &xterminal.background_color,
                     0,
@@ -349,17 +359,26 @@ int clean_screen(){
                     xterminal.width,
                     xterminal.height);
 
+    /* Reset clip to none. */
+    XftDrawSetClip(xterminal.xft_draw, 0);
+
+    // all drawing takes effect here.
+	XCopyArea(  xterminal.display, 
+                xterminal.drawable,
+                xterminal.window,
+                xterminal.gc,
+                0, 0,
+                xterminal.width,
+                xterminal.height,
+                0, 0);
 
     XFlush(xterminal.display);
-
     return 0;
 }
 
 int draw(){
     int ret;
     int x,y;
-
-    // clean_screen();
 
     for (y = 0; y < xterminal.terminal->rows_number; y++){
         for (x = 0; x < xterminal.terminal->cols_number; x++){
@@ -501,6 +520,18 @@ int run(){
     int ret;
     int to_draw = FALSE;
     XEvent event;
+
+	/* Waiting for window mapping */
+	do {
+		XNextEvent(xterminal.display, &event);
+
+        if (event_handlers[event.type]){
+            (event_handlers[event.type])(&event);
+        }
+        XSync(xterminal.display, FALSE);
+	} while (event.type != MapNotify);
+
+    clean_screen();
 
     while (TRUE){
         if (pty_pending(xterminal.pty)){
