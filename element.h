@@ -7,6 +7,7 @@ typedef struct{
     unsigned int attributes;
 	unsigned int foreground_color;
 	unsigned int background_color;
+    unsigned int dirty;
 }TElement;
 
 

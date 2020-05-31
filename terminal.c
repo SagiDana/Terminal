@@ -230,6 +230,7 @@ int terminal_empty_element(Terminal* terminal, int x, int y){
     element->background_color = terminal->default_background_color;
     element->foreground_color = terminal->default_foreground_color;
     element->attributes = 0;
+    element->dirty = 1;
     return 0;
 }
 
@@ -282,6 +283,11 @@ int terminal_move_line(Terminal* terminal, int src_y, int dst_y){
     memcpy(&terminal->screen[dst_y * terminal->cols_number],
            &terminal->screen[src_y * terminal->cols_number],
            (sizeof(TElement) * terminal->cols_number));
+    
+    // mark destination as dirty.
+    for (int x = 0; x < terminal->cols_number; x++){
+        terminal->screen[(dst_y * terminal->cols_number) + x].dirty = 1;
+    }
 
     return 0;
 fail:
@@ -304,10 +310,18 @@ int terminal_scroll_left(Terminal* terminal, int y, int left, int right, int cha
 
     int dst = left;
     int src = left + chars_number;
+    int size = right - src;
     memmove(&line[dst], 
             &line[src], 
-            sizeof(TElement) * (right - src));
+            sizeof(TElement) * size);
+
     int i;
+
+    // mark destination as dirty
+    for (i = 0; i < size; i++){
+        line[dst + i].dirty = 1;
+    }
+
     for (i = 0; i < chars_number; i++){
         terminal_empty_element(terminal, right - i, y);
     }
@@ -1819,6 +1833,7 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
     ELEMENT.foreground_color = terminal->foreground_color;
     ELEMENT.background_color = terminal->background_color;
     ELEMENT.attributes = terminal->attributes;
+    ELEMENT.dirty = 1;
 
     ret = terminal_forward_cursor(terminal);
     ASSERT(ret == 0, "failed to move cursor forward.\n");
