@@ -1,6 +1,8 @@
 #include "ui.h"
 #include "color.h"
 
+#include <time.h>
+
 
 // ------------------------------------------------------------------------------------
 // helper functions
@@ -516,6 +518,23 @@ fail:
     return -1;
 }
 
+int is_xevent_pending(){
+    // wait;
+    int ret; 
+    int x_fd = XConnectionNumber(xterminal.display);
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(x_fd, &read_fds);
+
+    struct timespec x_timeout;
+    x_timeout.tv_sec = 0;
+    x_timeout.tv_nsec = (1000 * 1E6) / 120; // 120 fps
+
+    ret = pselect(x_fd + 1, &read_fds, NULL, NULL, &x_timeout, NULL);
+
+    return ret > 0;
+}
+
 int run(){
     int ret;
     int to_draw = FALSE;
@@ -534,21 +553,23 @@ int run(){
     clean_screen();
 
     while (TRUE){
+        if (is_xevent_pending()){
+            while(XPending(xterminal.display)){
+                XNextEvent(xterminal.display, &event);
+
+                if (event_handlers[event.type]){
+                    (event_handlers[event.type])(&event);
+                }
+                XSync(xterminal.display, FALSE);
+            }
+        }
+
+        // waiting to either xevent is pending or pty has data.
         if (pty_pending(xterminal.pty)){
             ret = read_from_pty();
             ASSERT(ret == 0, "failed to read from pty.\n");
             to_draw = TRUE;
         }
-
-        while(XPending(xterminal.display)){
-            XNextEvent(xterminal.display, &event);
-
-            if (event_handlers[event.type]){
-                (event_handlers[event.type])(&event);
-            }
-            XSync(xterminal.display, FALSE);
-        }
-        // LOG("finished X even loop.\n");
 
         if (to_draw){
             ret = draw();

@@ -160,7 +160,7 @@ int pty_pending(TPty* pty){
 
     struct timeval timeout = {
         .tv_sec = 0,
-        .tv_usec = 100
+        .tv_usec = 0
     };
 
     FD_ZERO(&read_fds);

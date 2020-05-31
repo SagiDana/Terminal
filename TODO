@@ -1,10 +1,6 @@
-- fix wraped lines in vim.
-- fix long command not insert in a new line.
-- fix font not rendering properly.
+- fix wraped lines
 - add OSC escape handling.
 - support more attributes.
 - show cursor properly.
 - scrollback buffer.
 - dump scrollback buffer to vim feature.
-- optimize renedering (currently drawing everything everytime).
-- add tic info file.
