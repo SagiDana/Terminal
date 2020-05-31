@@ -1,3 +1,4 @@
+- fix wraped lines in vim.
 - fix long command not insert in a new line.
 - fix font not rendering properly.
 - add OSC escape handling.

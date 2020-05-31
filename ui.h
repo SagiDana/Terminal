@@ -55,12 +55,12 @@ double font_size = 12.0;
 
 unsigned int cols = 80;
 unsigned int rows = 24;
-unsigned int border_pixels = 2;
+unsigned int border_pixels = 1;
 
 // -----------------------------------------------------------------------
 // colors
 // -----------------------------------------------------------------------
-char background_color[] = "#333333";
+char background_color[] = "#3C3C3C";
 char foreground_color[] = "#C0C0C0";
 
 // -----------------------------------------------------------------------

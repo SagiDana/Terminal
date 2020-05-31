@@ -40,9 +40,8 @@
 // this mode is currently used by csi_get_parameters() to let us know 
 // the '?' character was prefixed the parameters what indicates use we 
 // in private mode.
-#define PRIVATE_MODE    (1 << 6)
-
-#define CSI_SPACE_MODE  (1 << 7)
+#define PRIVATE_MODE        (1 << 6)
+#define CSI_SPACE_MODE      (1 << 7)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
@@ -60,13 +59,13 @@
 // debug escaped handlers macros.
 // ------------------------------------------------------------
 
-// #define ESC_DEBUG
-// #define CSI_DEBUG
-// #define SGR_DEBUG
+#define ESC_DEBUG
+#define CSI_DEBUG
+#define SGR_DEBUG
 
-#undef ESC_DEBUG
-#undef CSI_DEBUG
-#undef SGR_DEBUG
+// #undef ESC_DEBUG
+// #undef CSI_DEBUG
+// #undef SGR_DEBUG
 
 #ifdef ESC_DEBUG
 #define DEBUG_ESC_HANDLER(handler) do {                                 \
@@ -143,6 +142,9 @@ Terminal* terminal_create(  TPty* pty,
     terminal->csi_parameters_index = 0;
     terminal->attributes = 0;
 
+    // auto wrap mode is on by default.
+    SET_VT_MODE(VT_DECAWM_MODE);
+
     terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
 
@@ -207,8 +209,16 @@ fail:
 int terminal_forward_cursor(Terminal* terminal){
     if (terminal->cursor.x + 1 < terminal->cols_number){
         terminal->cursor.x++;
+    // }else if (IS_VT_MODE(VT_DECAWM_MODE)){
+        // int ret;
+        // ret = terminal_new_line(terminal);
+        // ASSERT((ret == 0), "failed to create new line.\n");
+        // terminal->cursor.x = 0;
     }
     return 0;
+
+// fail:
+    // return -1;
 }
 
 int terminal_empty_element(Terminal* terminal, int x, int y){
