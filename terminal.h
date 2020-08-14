@@ -17,7 +17,7 @@ typedef struct{
     int y;
 }TCursor;
 
-#define OSC_MAX_CHARS (100)
+#define OSC_MAX_CHARS (1024 * 4)
 #define CSI_MAX_PARAMETERS_CHARS (16)
 typedef struct{
     int cols_number;
@@ -43,6 +43,7 @@ typedef struct{
     unsigned int mode;
     unsigned int vt_mode;
     unsigned int attributes;
+    unsigned int charset;
     unsigned int background_color;
     unsigned int foreground_color;
 

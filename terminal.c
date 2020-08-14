@@ -13,46 +13,60 @@
 #define ELEMENT (terminal->screen[(terminal->cursor.y * terminal->cols_number) + terminal->cursor.x])
 
 // VT100 modes
-#define VT_LMN_MODE         (1 << 0) // New line mode
-#define VT_DECCKM_MODE      (1 << 1) // Cursor key to application
-#define VT_DECANM_MODE      (1 << 2) // ANSI
-#define VT_DECCOLM_MODE     (1 << 3) // Number of columns to 132
-#define VT_DECSCLM_MODE     (1 << 4) // Smooth scrolling
-#define VT_DECSCNM_MODE     (1 << 5) // Reverse video
-#define VT_DECOM_MODE       (1 << 6) // Origin to relative
-#define VT_DECAWM_MODE      (1 << 7) // Auto-wrap mode
-#define VT_DECARM_MODE      (1 << 8) // Auto-repeate mode
-#define VT_DECINLM_MODE     (1 << 9) // Interlacing mode
-#define VT_DECKPAM_MODE     (1 << 10) // alternative/numeric keypad mode
+#define VT_LMN_MODE          (1 << 0) // New line mode
+#define VT_DECCKM_MODE       (1 << 1) // Cursor key to application
+#define VT_DECANM_MODE       (1 << 2) // ANSI
+#define VT_DECCOLM_MODE      (1 << 3) // Number of columns to 132
+#define VT_DECSCLM_MODE      (1 << 4) // Smooth scrolling
+#define VT_DECSCNM_MODE      (1 << 5) // Reverse video
+#define VT_DECOM_MODE        (1 << 6) // Origin to relative
+#define VT_DECAWM_MODE       (1 << 7) // Auto-wrap mode
+#define VT_DECARM_MODE       (1 << 8) // Auto-repeate mode
+#define VT_DECINLM_MODE      (1 << 9) // Interlacing mode
+#define VT_DECKPAM_MODE      (1 << 10) // alternative/numeric keypad mode
 
 // mode operations
-#define IS_VT_MODE(x)       (terminal->vt_mode & x)
-#define SET_VT_MODE(x)      (terminal->vt_mode |= x)
-#define SET_NO_VT_MODE(x)   (terminal->vt_mode &= (~x))
+#define IS_VT_MODE(x)        (terminal->vt_mode & x)
+#define SET_VT_MODE(x)       (terminal->vt_mode |= x)
+#define SET_NO_VT_MODE(x)    (terminal->vt_mode &= (~x))
 
 // terminal state machine modes definitions
-#define ESC_MODE            (1 << 0)
-#define ESC_G0_MODE         (1 << 1) // define G0 charset.
-#define ESC_G1_MODE         (1 << 2) // define G1 charset.
-#define ESC_CHARSET_MODE    (1 << 3) // define charset.
-#define CSI_MODE            (1 << 4)
-#define OSC_MODE            (1 << 5)
+#define ESC_MODE             (1 << 0)
+#define ESC_G0_MODE          (1 << 1) // define G0 charset.
+#define ESC_G1_MODE          (1 << 2) // define G1 charset.
+#define ESC_CHARSET_MODE     (1 << 3) // define charset.
+#define CSI_MODE             (1 << 4)
+#define OSC_MODE             (1 << 5)
 // this mode is currently used by csi_get_parameters() to let us know 
 // the '?' character was prefixed the parameters what indicates use we 
 // in private mode.
-#define PRIVATE_MODE        (1 << 6)
-#define CSI_SPACE_MODE      (1 << 7)
+#define PRIVATE_MODE         (1 << 6)
+#define CSI_SPACE_MODE       (1 << 7)
 
 // mode operations
 #define IS_MODE(x)       (terminal->mode & x)
 #define SET_MODE(x)      (terminal->mode |= x)
 #define SET_NO_MODE(x)   (terminal->mode &= (~x))
 
-// mode operations
+// attributes operations (the attributes defined in the header file)
 #define RESET_ATTR()     (terminal->attributes &= 0)
 #define IS_ATTR(x)       (terminal->attributes & x)
 #define SET_ATTR(x)      (terminal->attributes |= x)
 #define SET_NO_ATTR(x)   (terminal->attributes &= (~x))
+
+
+// charsets definitions
+#define CHARSET_G0_UK      (1 << 0)
+#define CHARSET_G0_US      (1 << 1)
+#define CHARSET_G0_SPECIAL (1 << 2)
+#define CHARSET_G1_UK      (1 << 3)
+#define CHARSET_G1_US      (1 << 4)
+#define CHARSET_G1_SPECIAL (1 << 5)
+
+#define RESET_CHARSET()         (terminal->charset &= 0)
+#define IS_CHARSET(x)           (terminal->charset & x)
+#define SET_CHARSET(x)          (terminal->charset |= x)
+#define SET_NO_CHARSET(x)       (terminal->charset &= (~x))
 
 
 // ------------------------------------------------------------
@@ -144,6 +158,9 @@ Terminal* terminal_create(  TPty* pty,
 
     // auto wrap mode is on by default.
     SET_VT_MODE(VT_DECAWM_MODE);
+
+    // default to g0 us charset
+    SET_CHARSET(CHARSET_G0_US);
 
     terminal->screen = (TElement*) malloc(sizeof(TElement) * cols_number * rows_number);
     ASSERT_TO(fail_on_screen, terminal->screen, "failed to malloc screen.\n");
@@ -608,9 +625,12 @@ void esc_set_uk_charset_handler(Terminal* terminal){
 
     if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
 
+    RESET_CHARSET();
     if (IS_MODE(ESC_G0_MODE)){
+        SET_CHARSET(CHARSET_G0_UK);
     }
     if (IS_MODE(ESC_G1_MODE)){
+        SET_CHARSET(CHARSET_G1_UK);
     }
 }
 
@@ -618,9 +638,13 @@ void esc_set_us_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_set_us_charset_handler");
     if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
 
+    RESET_CHARSET();
+
     if (IS_MODE(ESC_G0_MODE)){
+        SET_CHARSET(CHARSET_G0_US);
     }
     if (IS_MODE(ESC_G1_MODE)){
+        SET_CHARSET(CHARSET_G1_US);
     }
 }
 
@@ -628,9 +652,12 @@ void esc_set_special_charset_handler(Terminal* terminal){
     DEBUG_ESC_HANDLER("esc_set_special_charset_handler");
     if (!IS_MODE(ESC_G0_MODE) && !IS_MODE(ESC_G1_MODE)) return;
 
+    RESET_CHARSET();
     if (IS_MODE(ESC_G0_MODE)){
+        SET_MODE(CHARSET_G0_SPECIAL);
     }
     if (IS_MODE(ESC_G1_MODE)){
+        SET_MODE(CHARSET_G1_SPECIAL);
     }
 }
 
@@ -1666,6 +1693,7 @@ int handle_osc_codes(Terminal* terminal, unsigned char control_code){
 
     ASSERT((terminal->osc_buffer_index + 1 < OSC_MAX_CHARS), 
             "osc -> number of string exceeded limit.\n");
+    LOG("osc -> string: \"%s\".\n", terminal->osc_buffer);
 
     terminal->osc_buffer[terminal->osc_buffer_index] = control_code;
     terminal->osc_buffer_index++;
@@ -1825,7 +1853,28 @@ int terminal_emulate(Terminal* terminal, unsigned int character_code){
         }
     }
 
-    // LOG("Putting char: '%c' (%d, %d)\n", character_code, terminal->cursor.x, terminal->cursor.y);
+    /*
+     * The table is proudly stolen from st which stole from rxvt.
+     */
+    static char *vt100_0[62] = { /* 0x41 - 0x7e */
+        "↑", "↓", "→", "←", "█", "▚", "☃", /* A - G */
+        0, 0, 0, 0, 0, 0, 0, 0, /* H - O */
+        0, 0, 0, 0, 0, 0, 0, 0, /* P - W */
+        0, 0, 0, 0, 0, 0, 0, " ", /* X - _ */
+        "◆", "▒", "␉", "␌", "␍", "␊", "°", "±", /* ` - g */
+        "␤", "␋", "┘", "┐", "┌", "└", "┼", "⎺", /* h - o */
+        "⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
+        "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
+    };
+
+    if ((IS_CHARSET(CHARSET_G0_SPECIAL)) &&
+            (BETWEEN(character_code, 0x41, 0x7E)) &&
+            (vt100_0[character_code - 0x41])){
+        character_code = *vt100_0[character_code - 0x41];
+    }
+
+    LOG("Putting char: '%c' (%d, %d)\n", character_code, terminal->cursor.x, terminal->cursor.y);
+
     // not a control code:
     // insert simple element to the terminal and moving
     // cursor forward.

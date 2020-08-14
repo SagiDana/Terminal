@@ -15,7 +15,7 @@
 void terminal_log(char* msg);
 
 #define LOG(...) do{                \
-    char buff[8128];                 \
+    char buff[1024*8];                 \
     sprintf(buff, __VA_ARGS__);     \
     terminal_log(buff);                   \
 }while(0)
